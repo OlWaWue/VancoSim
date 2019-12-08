@@ -38,7 +38,7 @@ times = c(10)
 
 tdm_data = data.frame(time=times, conc=c(10))
 
-ags <- jags.model('Goti_et_al.bug',
+jags.mod <- jags.model('Goti_et_al.bug',
                   data = list('c' = c(10),
                               'amt' = c(1000,1000,1000), 
                               'dosing_time' = dosing_time,

@@ -132,7 +132,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                                         0.816,
                                         0.571),
                              params,
-                             TIME = seq(0, 72, by=1), SIGMAS=c(0.227)) {
+                             TIME = seq(0, 72, by=0.1), SIGMAS=c(0.227)) {
   
   
   
@@ -356,7 +356,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
 }
 
 
-perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to) {
+perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to, by=0.2) {
   
 
     mc_eta2 <- (rnorm(n = n.mc, mean=0, sd=sqrt(omegas[2])))
@@ -375,7 +375,11 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to) 
   mc_V1_ind <- list()
   mc_V2_ind <- list()
   
+  pk_data <- app_data$data_set
 
+  dosing_events <- data.frame(time=as.numeric(as.character(pk_data[pk_data$evid==1,]$time)),
+                              amt=as.numeric(as.character(pk_data[pk_data$evid==1,]$amt)),
+                              dur=as.numeric(as.character(pk_data[pk_data$evid==1,]$dur)))
   
   ## Do with progress
   withProgress(message = "Performing Monte Carlo simulation", max = n.mc, {
@@ -386,7 +390,7 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to) 
                                    params = app_data$params,
                                    eta = c(all_etas$ETA1[i], all_etas$ETA2[i], all_etas$ETA3[i]),
                                    dosing_events = dosing_events,
-                                   times=seq(t_from,t_to,0.2))
+                                   times=seq(t_from,t_to, by))
       
   
       
@@ -408,6 +412,6 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to) 
   s <- apply(dat_mc,2,function(x) quantile(x,probs=c(0.05,0.5,0.95)))
   
   ## Data for population PK Plot
-  plot_dat <- data.frame(TIME=seq(t_from, t_to, by=0.2),CP_min=s[1,],CP=s[2,],CP_max=s[3,], DELTA=(s[3,]-s[1,]))
+  plot_dat <- data.frame(TIME=seq(t_from, t_to, by=by),CP_min=s[1,],CP=s[2,],CP_max=s[3,], DELTA=(s[3,]-s[1,]))
   return(list(plot_dat, dat_mc, all_etas,mc_Cl_ind, mc_V1_ind, mc_V2_ind))
 }

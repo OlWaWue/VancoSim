@@ -1,6 +1,6 @@
 shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg",
                    
-                   tabPanel("Main",
+                   tabPanel("Enter Patient data",
                             htmlOutput("info"),br(),hr(),
                             sidebarLayout(
                               sidebarPanel(
@@ -58,6 +58,13 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                             
                    ),
                    tabPanel("Model File",
-                            verbatimTextOutput("modelfile"))
-)
+                            verbatimTextOutput("modelfile")),
+                    tabPanel("Settings",
+                             numericInput(inputId="mcmc.iter", label="Iterations MCMC", value =200),
+                             numericInput(inputId="mc.iter", label="Iterations MC", value =200),
+                             numericInput(inputId="mcmc.burn", label="Burn-in Iterations MCMC", value =10),
+                             numericInput(inputId="delta.t", label="Delta time [h]", value =0.5),
+                             numericInput(inputId="simulate.t", label="Simulate time [h]", value =0)
+                             )
+            )
 )

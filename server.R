@@ -44,17 +44,24 @@ shinyServer(function(input, output, session) {
   ## This function takes care of all the simulations
   ## MCMC is outsourced to global.R
   updatePKPlot <- function(){
-    app_data$mc_result <- perform_mc_simulation(100, ## number of simulations
+    
+    times <- app_data$data_set$time
+    
+
+    
+    app_data$params <- c(input$WT, input$CRCL, input$has_dialysis)
+    
+    app_data$mc_result <- perform_mc_simulation(input$mc.iter, ## number of simulations
                                                 OMEGAS, ## omegas
                                                 THETAS, ## thetas
                                                 app_data, ## App Data for Dosing / TDM Data
-                                                0, 72) ## Time to simulate
+                                                min(times), max(times)+input$simulate.t, input$delta.t) ## Time to simulate
     
-    app_data$mcmc_result = process_data_set(app_data$data_set, n.iter = 200, n.burn = 20,
+    app_data$mcmc_result = process_data_set(app_data$data_set, n.iter = input$mcmc.iter, n.burn = input$mcmc.burn,
                                             thetas = THETAS,
                                             omegas = OMEGAS,
-                                            params = PARAMS,
-                                            TIME =seq(0, 72, by=0.2), SIGMAS=3.4) 
+                                            params = app_data$params,
+                                            TIME =seq(min(times), max(times)+input$simulate.t, by=input$delta.t), SIGMAS=3.4) 
     
     
     plot_dat <- app_data$mc_result [[1]] ## get Plot data ...
@@ -131,7 +138,10 @@ shinyServer(function(input, output, session) {
   
   output$par_dist <- renderPlot({
     
-   # print(app_data$mcmc_result[[9]])
+    ind_Cl <- NULL
+    ind_Vc <- NULL
+    ind_Vp <- NULL
+    print(app_data$mcmc_result[[9]][[1]])
     
 #    dist_plots[[1]] <- ggplot() +theme_bw()+ 
 #      geom_density(data=pop_pars, aes(x=pop_ka, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1) +
@@ -198,6 +208,7 @@ shinyServer(function(input, output, session) {
   
   observeEvent(input$submit,
                ## Submit changes
+               
                app_data$pk_plots <- updatePKPlot()
   )
   
