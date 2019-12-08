@@ -1,6 +1,5 @@
 model
 {
-  ### Basemodel does not include Covariates ###
   
   WT <- params[1]
   CrCL <- params[2]
@@ -28,40 +27,22 @@ model
   B = 1/V1 *(beta-k21)/(beta-alpha)
   
 
-  for(x in 1:length(times)){
+ for(x in 1:length(times)){
 
-      t=times[x]
-  
-              
-            doses_prior_to_t <- 1
-
-            
-            temp_delta_td <- dosing_time[length(doses_prior_to_t)]
-
-            temp_delta_tinf <- t_inf[length(doses_prior_to_t)]
-
-            temp_amt <- amt[length(doses_prior_to_t)]
-          
-            
-            Di <- amt[doses_prior_to_t] 
-            Di <- Di[-length(amt[doses_prior_to_t])]
-            
-            # Di = amt[dosing_time<t][-length(amt[dosing_time<t])]
-            
-            temp_delta_tdi <- dosing_time[doses_prior_to_t]
-            temp_delta_tdi <- temp_delta_tdi[-length(temp_delta_tdi)]
-            
-            
-            tinf_i <- t_inf[doses_prior_to_t]
-            tinf_i <- tinf_i[-length(amt[doses_prior_to_t])]
-
-            
-            temp_ipred <- ifelse((t-temp_delta_td)<=temp_delta_tinf,
-                                 sum( ( Di/tinf_i *(A/alpha * (1-exp(-alpha*tinf_i )) * exp(-alpha*(t-temp_delta_tdi-tinf_i ) ) + B/beta  * (1-exp(-beta*tinf_i ))  * exp(-beta*(t-temp_delta_tdi-tinf_i ) )) ) ) + ( temp_amt /temp_delta_tinf * (A/alpha * (1-exp(-alpha*(t-temp_delta_td))) + B/beta * (1-exp(-beta*(t-temp_delta_td))))),
-                                 sum( amt[dosing_time<t]/t_inf[dosing_time<t] * (A/alpha * (1-exp(-alpha*t_inf[dosing_time<t])) * exp(-alpha*(t-dosing_time[dosing_time<t]-t_inf[dosing_time<t])) + B/beta * (1-exp(-beta*t_inf[dosing_time<t]))  * exp(-beta*(t-dosing_time[dosing_time<t]-t_inf[dosing_time<t]))) )
-                                 )  
-
-      c[x]~dnorm(temp_ipred[x], 1/pow(sigma,2))
+    for(i in 1:length(amt)) {
+      
+      a[x, i]<- ifelse((times[x]-dosing_time[i]) <= 0,
+                               0 , 
+                                ifelse(times[x]-dosing_time[i] <= t_inf[i], 
+                                       amt[i]/t_inf[i] * ( (A/alpha)*(1-exp(-alpha*(times[x]-dosing_time[i]))) + (B/beta) * (1-exp(-beta*(times[x]-dosing_time[i])))), 
+                                       amt[i]/t_inf[i] * (  (A/alpha)*(1-exp(-alpha*t_inf[i]) )*exp(-alpha*(times[x]-dosing_time[i]-t_inf[i])) + (B/beta)*(1-exp(-beta*t_inf[i]) )*exp(-beta*(times[x]-dosing_time[i]-t_inf[i])) )
+                                       )
+                               ) 
+      
     }
-  
+    mu[x] <- sum(a[x,])
+    
+    c[x]~dnorm(mu[x], 1/pow(sigma,2))
+  }
+
 }

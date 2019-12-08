@@ -30,9 +30,15 @@ res <- pk_2cmt_infusion(theta = thetas,
                  dosing_events = dosing_events,
                  times=seq(0,72,0.1))
 
+res_alt <- pk_2cmt_infusion_alt(theta = thetas,
+                        params = params,
+                        eta = etas,
+                        dosing_events = dosing_events,
+                        times=seq(0,72,0.1))
 
 
 ggplot(res) + geom_line(aes(x=times, y=IPRED))
+ggplot(res_alt) + geom_line(aes(x=times, y=IPRED))
 
 ## analytical solution of 2cmt model multiple doses 
 pk_2cmt_infusion <- function(theta, params, eta, dosing_events, times){
@@ -111,6 +117,67 @@ pk_2cmt_infusion <- function(theta, params, eta, dosing_events, times){
         }
         IPRED[x] <- temp_ipred
   }
+  
+  dat <- data.frame(times=times, IPRED=IPRED, CL_i=Cl, Vc_i=V1, Vp_i=V2, Q_i=Q)
+  
+  return(dat)
+}
+
+
+pk_2cmt_infusion_alt <- function(theta, params, eta, dosing_events, times){
+  
+  dosing_time <- dosing_events[,1]
+  amt <- dosing_events[,2]
+  t_inf <- dosing_events[,3]
+  
+  WT <- params[1]
+  CrCL <- params[2]
+  DIAL <- params[3]
+  
+  
+  Cl <- theta[1]*( (CrCL/120)^theta[5]) * (theta[6]^DIAL)*exp(eta[1])
+  V1 <- theta[2]*(WT/70) * (theta[7]^DIAL)*exp(eta[2])
+  V2 <- theta[3] * exp(eta[3])
+  Q <- theta[4]
+  
+  k=Cl/V1
+  k12 = Q/V1
+  k21 = Q/V2
+  
+  
+  beta = 0.5 * (k12 + k21 + k - sqrt((k12 + k21 + k)^2 - 4 * k21 * k))
+  
+  alpha = (k21 * k) / beta
+  
+  A = 1/V1 *(alpha-k21)/(alpha-beta)
+  B = 1/V1 *(beta-k21)/(beta-alpha)
+  
+  IPRED <- vector()
+  
+  
+  for(x in 1:length(times)){
+    
+    t=times[x]
+   
+      
+      
+      
+      temp_conc <- c(nrow = length(amt))
+      for(i in 1:length(amt)) {
+        
+        temp_conc[i] <- ifelse((times[x]-dosing_time[i]) <= 0,
+                               0 , 
+                                ifelse(times[x]-dosing_time[i] <= t_inf[i], 
+                                       amt[i]/t_inf[i] * ( (A/alpha)*(1-exp(-alpha*(times[x]-dosing_time[i]))) + (B/beta) * (1-exp(-beta*(times[x]-dosing_time[i])))), 
+                                       amt[i]/t_inf[i] * (  (A/alpha)*(1-exp(-alpha*t_inf[i]) )*exp(-alpha*(times[x]-dosing_time[i]-t_inf[i])) + (B/beta)*(1-exp(-beta*t_inf[i]) )*exp(-beta*(times[x]-dosing_time[i]-t_inf[i])) )
+                                       )
+                               ) 
+        
+      }
+    
+      IPRED[x] <- sum(temp_conc)
+  }
+  
   
   dat <- data.frame(times=times, IPRED=IPRED, CL_i=Cl, Vc_i=V1, Vp_i=V2, Q_i=Q)
   
