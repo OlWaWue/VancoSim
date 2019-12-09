@@ -3,7 +3,36 @@ library('ggplot2')
 library('readxl')
 library('shiny')
 library('shinyjs')
+library('shinythemes')
 library('gridExtra')
+library('PerformanceAnalytics')
+library('lubridate')
+library('DT')
+library('scales')
+
+#Set Color scheme
+main_plot_col <- "#E95420"
+sec_plot_col <- "grey20"
+sec_plot_highDose_col <- "darkorange"
+sec_plot_lowDose_col <- "#00a500"
+sec_plot_shortInt_col <- "darkgrey"
+sec_plot_longInt_col <- "#00a599"
+limit_plot_col <-"#990000"
+text_plot_col <- "grey20"
+cont_plot_col <- "lightgrey"
+backg_plot_col <-"white"
+line_plot_col <- "gray"
+plot_grid_col <- "gray"
+
+
+plot_theme <- theme(axis.text.x = element_text(colour=text_plot_col,size=12,angle=0,hjust=.5,vjust=.5,face="plain"),
+                    axis.text.y = element_text(colour=text_plot_col,size=12,angle=0,hjust=1,vjust=0,face="plain"),  
+                    axis.title.x = element_text(colour=text_plot_col,size=14,angle=0,hjust=.5,vjust=0,face="bold"),
+                    axis.title.y = element_text(colour=text_plot_col,size=14,angle=90,hjust=0.5,vjust=2,face="bold"), 
+                    legend.position = "bottom", legend.justification = c(0,1), legend.text=element_text(size=13),
+                    panel.background = element_rect(fill = backg_plot_col, colour = cont_plot_col), panel.border = element_blank(), panel.grid.major = element_line(colour = plot_grid_col, linetype = 2),
+                    panel.grid.minor = element_line(colour = plot_grid_col, linetype = 2), axis.line = element_line(colour = line_plot_col))
+
 
 THETAS = c(4.5,  ## THETA1 -  clearance (L/h)
            58.4, ## THETA2 - volume of central compartment (L)
@@ -35,6 +64,8 @@ ETAS = c(0,0,0)
 
 ## analytical solution of 2cmt model multiple doses 
 pk_2cmt_infusion <- function(theta, params, eta, dosing_events, times){
+  
+
   
   dosing_time <- dosing_events[,1]
   amt <- dosing_events[,2]
@@ -133,12 +164,12 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                                         0.816,
                                         0.571),
                              params,
-                             TIME = seq(0, 72, by=0.1), SIGMAS=c(0.227)) {
+                             TIME = seq(0, 72, by=0.1), SIGMAS, time_reference) {
   
   
   
   # inner function to generate individual PK plot
-  do_plot <- function(jags_result, nburn=n.burn){
+  do_plot <- function(jags_result, nburn=n.burn, time_reference){
     
     ## Use the fourth chain for the simulation
     df <- as.data.frame(jags_result[[4]])
@@ -148,9 +179,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
     
     mcmc_se <- list()
     
-    mcmc_Cl_ind <- list()
-    mcmc_V1_ind <- list()
-    mcmc_V2_ind <- list()
+    mcmc_ind_pars <- data.frame()
     
     ## Simulate with the etas obtained by sampling from the posterior distribution
     withProgress(message = "Processing MCMC results", max = nrow(df), {
@@ -164,13 +193,16 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                                        times=TIME)
           
           mcmc_se[[i]] <- temp_dat$IPRED
-          mcmc_Cl_ind[[i]] <- temp_dat$CL_i
-          mcmc_V1_ind[[i]] <- temp_dat$Vc_i
-          mcmc_V2_ind[[i]] <- temp_dat$Vp_i
         
+          mcmc_ind_pars <- rbind(mcmc_ind_pars, c(CL=temp_dat$CL_i[1],V1=temp_dat$Vc_i[1],V2=temp_dat$Vp_i[1]))
+          
         incProgress(1)
       }
     })
+    
+
+
+    colnames(mcmc_ind_pars) <- c("CL", "V1", "V2")
     
     
     df_temp <- NULL
@@ -197,12 +229,12 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
     
     ## Build raw individual PK plot
     p <- ggplot(pk_data) + 
-      geom_ribbon(aes(ymin=s1, ymax=s2, x=time), fill="red", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s3, ymax=s4, x=time), fill="red", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s5, ymax=s6, x=time), fill="red", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s7, ymax=s8, x=time), fill="red", alpha=0.15) + 
-      geom_line(aes(y=max, x=time))+
-      geom_point(data=tdm_data, aes(x=time, y=conc))
+      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=time_reference) ), fill="red", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="red", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="red", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="red", alpha=0.15) + 
+      geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=time_reference)))+
+      geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=time_reference), y=conc))
     
     ## Get the last simulated concentration for the boxplot
     c_at_tlast <- df_temp[,ncol(df_temp)]
@@ -212,7 +244,12 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
     
     ind_y_min <- min(pk_data$s1[pk_data$s1>0])
     
-    return(list(p, c_at_tlast, ind_y_max, ind_y_min, mcmc_Cl_ind, mcmc_V1_ind, mcmc_V2_ind ))
+    return(list(p,             #1
+                c_at_tlast,    #2
+                ind_y_max,     #3
+                ind_y_min,     #4
+                mcmc_ind_pars  #5
+                ))
   }
   
   ### Generate MCMC trace plots and distributions for every eta
@@ -327,13 +364,13 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   
   
   
-  pk_profile <- (do_plot(d))
+  pk_profile <- (do_plot(d, time_reference=time_reference))
   
   
   mcmc_plots_1 <- mcmc_diagnosticplots(1, d, nburn=n.burn, omega=omegas, "red")
   mcmc_plots_2 <- mcmc_diagnosticplots(2, d, nburn=n.burn, omega=omegas, "orange")
   mcmc_plots_3 <- mcmc_diagnosticplots(3, d, nburn=n.burn, omega=omegas, "yellow")
-  
+  mcmc_plots_4 <- mcmc_diagnosticplots(4, d, nburn=n.burn, omega=omegas, "blue")
   ## Use the fourth chain for the simulation
   df <- as.data.frame(d[[4]])
   
@@ -344,14 +381,13 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   result = list(mcmc_plots_1, 
                 mcmc_plots_2, 
                 mcmc_plots_3, 
+                mcmc_plots_4,
                 pk_profile=pk_profile[[1]], 
                 c_at_tlast=pk_profile[[2]], 
                 ind_y_max=pk_profile[[3]], 
                 ind_y_min=pk_profile[[4]], 
                 mcmc_etas = df,
-                mcmc_Cl_ind=pk_profile[[5]],
-                mcmc_V1_ind=pk_profile[[6]],
-                mcmc_V2_ind=pk_profile[[7]])
+                mcmc_ind_pars=pk_profile[[5]])
   
   return(result)
 }
@@ -371,10 +407,8 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to, 
   
   
   mc_se <- list()
-  
-  mc_Cl_ind <- list()
-  mc_V1_ind <- list()
-  mc_V2_ind <- list()
+
+  mc_ind_pars <- data.frame()
   
   pk_data <- app_data$data_set
 
@@ -396,15 +430,17 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to, 
   
       
       mc_se[[i]] <- temp_dat$IPRED
-      mc_Cl_ind[[i]] <- temp_dat$CL_i
-      mc_V1_ind[[i]] <- temp_dat$Vc_i
-      mc_V2_ind[[i]] <- temp_dat$Vp_i
-        
 
+
+      mc_ind_pars <- rbind(mc_ind_pars, c(CL=temp_dat$CL_i[1],V1=temp_dat$Vc_i[1],V2=temp_dat$Vp_i[1]))
+      
       dat_mc <- cbind(dat_mc, mc_se[[i]])
       incProgress(1)
     }
   })
+  
+  colnames(mc_ind_pars) <- c("CL", "V1", "V2")
+  
   
   ## transpose data -> rows into columns
   dat_mc <- t(dat_mc)
@@ -414,5 +450,8 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to, 
   
   ## Data for population PK Plot
   plot_dat <- data.frame(TIME=seq(t_from, t_to, by=by),CP_min=s[1,],CP=s[2,],CP_max=s[3,], DELTA=(s[3,]-s[1,]))
-  return(list(plot_dat, dat_mc, all_etas,mc_Cl_ind, mc_V1_ind, mc_V2_ind))
+  return(list(plot_dat,      # 1
+              dat_mc,        # 2
+              all_etas,      # 3
+              mc_ind_pars))  # 4
 }

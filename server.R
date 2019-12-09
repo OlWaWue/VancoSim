@@ -28,18 +28,61 @@ shinyServer(function(input, output, session) {
     
     mcmc_result = NULL,
     mc_result= NULL,
-    data_set = data.frame(time=c(0,4,6,12,24,30,36,48),
-                          amt=c(1000,".",".",1000,1000,".",1000,"."),
-                          conc=c(".", 10, 15, ".",".", 16,".", 5),
-                          evid=c(1, 0, 0, 1,1, 0, 1, 0),
-                          dur=c("0.5",".",".","0.5","0.5",".","0.5",".")),
-    params= c(70,    ## Body weight in kg
-      120,   ## CrCl in mL/min
-      0),     ## Dialysis yes or no
+    disc_shown = F,
+    user_data_set = data.frame(DATE=c("09.12.2019","10.12.2019","10.12.2019","10.12.2019","10.12.2019","11.12.2019","11.12.2019","11.12.2019"),
+                          TIME=c("13:12", "08:24", "10:12", "14:12","13:12", "08:24", "10:12", "14:12"),
+                          AMT=c(1000,".",".",1000,1000,".",1000,"."),
+                          CONC=c(".", 10, 15, ".",".", 16,".", 5),
+                          EVID=c(1, 0, 0, 1,1, 0, 1, 0),
+                          DUR=c("0.5",".",".","0.5","0.5",".","0.5",".")),
+    data_set = NULL,
+    time_reference = NULL,
+    params= c(WT=70,    ## Body weight in kg
+      CRCL=120,   ## CrCl in mL/min
+      DIAL=0),     ## Dialysis yes or no
     
     demo_loaded = FALSE, # Flag shows whether demo simulation has been loaded
-    pk_plots = NULL
+    pk_plots = NULL,
+    adapted_pk_plot = NULL,
+    dist_plots = NULL
   )
+  
+
+  convert_xlsx_to_NMTRAN <- function(data){
+    date <- (as.character(data$DATE))
+    
+    hour <- NULL
+    
+    for(i in 1:length(data$TIME)){
+      hour[i] <- strsplit((as.character(data$TIME[i])), " ")[[1]][2]
+    }
+    hour_time <- as.POSIXct(paste(date, hour, sep= " "))
+    
+    
+    
+    orig_data <- data.frame(DATE = date,
+                            TIME = hour,
+                            AMT = data$AMT,
+                            CONC = data$CONC,
+                            EVID = data$EVID,
+                            DUR = data$DUR) 
+
+    hour_time <- as.numeric(hour_time)
+    
+    t_ref <- min(hour_time)
+    
+    hour_time <- (hour_time-min(hour_time))/3600
+
+    conv_data <- data.frame(time=hour_time,
+                            amt = data$AMT,
+                            conc = data$CONC,
+                            evid = data$EVID,
+                            dur = data$DUR)
+    
+    return(list(original_data=orig_data,
+                conv_data=conv_data,
+                time_reference=t_ref))
+  }
   
   ## This function takes care of all the simulations
   ## MCMC is outsourced to global.R
@@ -61,7 +104,8 @@ shinyServer(function(input, output, session) {
                                             thetas = THETAS,
                                             omegas = OMEGAS,
                                             params = app_data$params,
-                                            TIME =seq(min(times), max(times)+input$simulate.t, by=input$delta.t), SIGMAS=3.4) 
+                                            TIME =seq(min(times), max(times)+input$simulate.t, by=input$delta.t), 
+                                            SIGMAS=3.4, time_reference=app_data$time_reference) 
     
     
     plot_dat <- app_data$mc_result [[1]] ## get Plot data ...
@@ -70,8 +114,8 @@ shinyServer(function(input, output, session) {
     ## Get lowest value (non-zero <- log-scale) and max value in PK plot to adjust y-axis
     pop_y_max <- max(plot_dat$CP_max)
     pop_y_min <- min(plot_dat$CP_min[plot_dat$CP_min >0])
-    ind_y_max <- app_data$mcmc_result[[6]]
-    ind_y_min <- app_data$mcmc_result[[7]]
+    ind_y_max <- app_data$mcmc_result[[7]]
+    ind_y_min <- app_data$mcmc_result[[8]]
     
     
     ## get tdm data from the table
@@ -83,42 +127,59 @@ shinyServer(function(input, output, session) {
     ind_y_max <- ifelse(max(tdm_data$conc) > ind_y_max, max(tdm_data$conc), ind_y_max)
     
     ## prepare individual boxplot
-    ind_boxplot <- ggplot(data=data.frame(conc=app_data$mcmc_result[[5]], time="")) + geom_boxplot(aes(x=time, y=conc)) + theme_bw()  +
+    ind_boxplot <- ggplot(data=data.frame(conc=app_data$mcmc_result[[6]], time="")) + geom_boxplot(aes(x=time, y=conc)) + plot_theme  +
       theme(axis.text.y = element_blank(), axis.title.y = element_blank(), 
             axis.ticks.y = element_blank())+ 
-      ggtitle(paste("C last at ", input$TIME[2], " h"), "Individual") + xlab("") + ylim(c(0,ind_y_max*1.2))
+      ggtitle("C last [mg/L]", "Individual") + xlab("\n") + ylim(c(0,ind_y_max*1.1))
     
     ## prepare individual PK plot
     
-    ind_plot <- app_data$mcmc_result[[4]] + theme_bw() + xlab("Time [h]") + ylab("Concentration [mg/L]") +
-      ggtitle("MCMC Result including data (posterior)", "80/85/90/95% PI") + 
-      geom_line(data=plot_dat, aes(x=TIME, y=CP), colour="blue", linetype=2) + ylim(c(0,ind_y_max*1.2)) +
-      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1.5) +
-      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1.5) +
-      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1.5)
+    ind_plot <- app_data$mcmc_result[[5]] + plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") +
+      ggtitle("Individual Prediction Using TDM Data and Covariates", "80/85/90/95% PI") + 
+     # geom_line(data=plot_dat, aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), y=CP), colour="blue", linetype=2) +  ## Uncomment this line for additional popPrediction
+      ylim(c(0,ind_y_max*1.1)) +
+      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1) +
+      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1) +
+      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1) + scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"))
     
+   
     ## prepare population boxplot
-    pop_boxplot <- ggplot(data=data.frame(conc=dat_mc[,ncol(dat_mc)], time="")) + geom_boxplot(aes(x=time, y=conc)) + theme_bw()  +
+    pop_boxplot <- ggplot(data=data.frame(conc=dat_mc[,ncol(dat_mc)], time="")) + geom_boxplot(aes(x=time, y=conc)) + plot_theme +
       theme(axis.text.y = element_blank(), axis.title.y = element_blank(), 
-            axis.ticks.y = element_blank())+ ggtitle(paste("C last at ", input$TIME[2], " h") , "Population") + 
-      xlab("") + ylim(c(0,pop_y_max*1.2))
+            axis.ticks.y = element_blank())+ ggtitle("C last [mg/L]" , "Population") + 
+      xlab("\n") + ylim(c(0,pop_y_max*1.1)) 
     
     ## Prepare population PK plot
-    pop_plot <- ggplot(data=plot_dat)  + geom_line(aes(x=TIME, y=CP), colour="blue") +
-      geom_ribbon(aes(x=TIME, ymax=CP_max, ymin=CP_min), alpha=0.15, fill="blue") +
-      theme_bw() + xlab("Time [h]") + ylab("Concentration [mg/L]") + ggtitle("MC Result without data (prior)", "95% PI") +
-      geom_point(data=tdm_data, aes(x=time, y=conc)) + ylim(c(0,pop_y_max*1.2)) +
-      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1.5) +
-      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1.5) +
-      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1.5)
+    pop_plot <- ggplot(data=plot_dat)  + geom_line(aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), y=CP), colour="blue") +
+      geom_ribbon(aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), ymax=CP_max, ymin=CP_min), alpha=0.15, fill="blue") +
+      plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Population Prediction Using Patient Covariates", "95% PI") +
+      geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600, origin=app_data$time_reference), y=conc)) + ylim(c(0,pop_y_max*1.1)) +
+      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1) +
+      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1) +
+      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1) + scale_x_datetime( labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) 
+      
     
     
     plots <- list(ind_plot, pop_plot, ind_boxplot, pop_boxplot)
 
   }
   
+  output$adapted_pkPlot <- renderPlot({
+    
+    if(is.null(app_data$adapted_pk_plot)){
+      return()
+    }
+    
+
+    plot(app_data$adapted_pk_plot)
+    
+  })
+  
   output$pkPlot <- renderPlot({
     
+    if(is.null(app_data$pk_plots)){
+      return()
+    }
     
     grid.arrange(app_data$pk_plots[[2]], app_data$pk_plots[[4]], 
                  app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=2, ncol=2,widths=c(4,1))
@@ -126,10 +187,32 @@ shinyServer(function(input, output, session) {
     
   })
   
-  output$data_set <- renderTable({
+  output$data_set <- DT::renderDataTable({
+    
+    if(!app_data$disc_shown){
+      app_data$disc_shown = T
+      showModal(modalDialog(
+        title = "Disclaimer",
+        HTML(paste("<B>daGama - VancoSim has been created for personal use only! </B><BR>", 
+                   "There is no guarantee for the correctness of results obtained via VancoSim Using data generated by the application is at the risk of the daGama - VancoSim user alone!", 
+                   "Any data entered is only saved temporarly and deleted upon closing the application. ", 
+                   "<BR>",
+                   "The user accepts <a href=\"http://www.osc-lab.de/impressum.html\"> our legal notices</a> automatically when using the application. ")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
     
     
-    display_data <-app_data$data_set
+    temp <- convert_xlsx_to_NMTRAN(read_excel("./example_dat.xlsx"))
+    
+    app_data$data_set <- temp$conv_data
+    app_data$user_data_set <- temp$original_data
+    app_data$time_reference <- as.Date.POSIXct(temp$time_reference)
+    
+    
+    
+    display_data <-app_data$user_data_set
     
     display_data
     
@@ -137,49 +220,48 @@ shinyServer(function(input, output, session) {
   })
   
   output$cov_plot <- renderPlot({
+    chain = as.numeric(input$select_chain)
     
+    ## Show correlation matrix - the lazy way
+    chart.Correlation(app_data$mcmc_result[[chain]]$chain_data, histogram=TRUE)
     
     
   })
   
   output$pop_cov_plot <- renderPlot({
-    
+    ## Show correlation matrix - the lazy way
+    chart.Correlation(app_data$mc_result[[3]], histogram=TRUE)
     
   })
   
   output$par_dist <- renderPlot({
     
-    ind_Cl <- NULL
-    ind_Vc <- NULL
-    ind_Vp <- NULL
-    print(app_data$mcmc_result[[9]][[1]])
+
+    if(is.null(app_data$mc_result)){
+      return()
+    }
     
-#    dist_plots[[1]] <- ggplot() +theme_bw()+ 
-#      geom_density(data=pop_pars, aes(x=pop_ka, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1) +
-#      geom_density(data=ind_pars, aes(x=ind_ka, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1) +
-#      xlab("Absorption rate constant (ka) [1/h]") + ylab("Frequency")
-#    dist_plots[[2]] <- ggplot(  ) +theme_bw()+ 
-#      geom_density(data=pop_pars, aes(x=pop_Vc, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1) +
-#      geom_density(data=ind_pars,aes(x=ind_Vc, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1)+
-#      xlab("Volume of central compartment (Vc) [L]") + ylab("Frequency")
-#    dist_plots[[3]] <- ggplot( ) +theme_bw()+ 
-#      geom_density(data=pop_pars, aes(x=pop_Cl, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1)+
-#      geom_density(data=ind_pars,aes(x=ind_Cl, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1)+
-#      xlab("Clearance (Cl) [L/h]") + ylab("Frequency")
-#    dist_plots[[4]] <- ggplot(  ) +theme_bw()+ 
-#      geom_density(data=pop_pars, aes(x=pop_Vp, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1)+
-#      geom_density(data=ind_pars,aes(x=ind_Vp, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1)+
-#      xlab("Volume of peripheral compartment (Vp) [L]") + ylab("Frequency")
-#    dist_plots[[5]] <- ggplot(  ) +theme_bw()+ 
-#      geom_density(data=pop_pars, aes(x=pop_Q, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1)+
-#      geom_density(data=ind_pars,aes(x=ind_Q, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1)+
-#      xlab("Intercompartmental Clearance (Q) [L/h]") + ylab("Frequency")
-#    dist_plots[[6]] <- ggplot(  ) +theme_bw()+ 
-#      geom_density(data=pop_pars, aes(x=pop_F_oral, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1)+
-#      geom_density(data=ind_pars,aes(x=ind_F_oral, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1)+
-#      xlab("Systemically available fraction") + ylab("Frequency")
+    pop_pars <- (app_data$mc_result[[4]])
+    ind_pars <- (app_data$mcmc_result[[10]])
     
-#    grid.arrange(dist_plots[[1]],dist_plots[[2]],dist_plots[[3]],dist_plots[[4]],dist_plots[[5]],dist_plots[[6]], nrow=3, ncol=2)
+    dist_plots <- list()
+    
+    dist_plots[[1]] <- ggplot() +theme_bw()+ 
+      geom_density(data=pop_pars, aes(x=CL, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1) +
+      geom_density(data=ind_pars, aes(x=CL, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1) +
+      xlab("Clearance (Cl) [L/h]") + ylab("Frequency")
+    dist_plots[[2]] <- ggplot(  ) +theme_bw()+ 
+      geom_density(data=pop_pars, aes(x=V1, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1) +
+      geom_density(data=ind_pars,aes(x=V1, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1)+
+      xlab("Volume of central compartment (Vc) [L]") + ylab("Frequency")
+    dist_plots[[3]] <- ggplot( ) +theme_bw()+ 
+      geom_density(data=pop_pars, aes(x=V2, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1)+
+      geom_density(data=ind_pars,aes(x=V2, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1)+
+      xlab("Volume of peripheral compartment (Vp) [L]") + ylab("Frequency")
+    
+    app_data$dist_plots <- dist_plots
+    
+    grid.arrange(dist_plots[[1]],dist_plots[[2]],dist_plots[[3]], nrow=1, ncol=3)
   
   })
   
@@ -192,11 +274,134 @@ shinyServer(function(input, output, session) {
     ## 
       gridExtra::grid.arrange(app_data$mcmc_result[[chain]]$p_iter_ETA1, app_data$mcmc_result[[chain]]$p_dens_ETA1,    
                               app_data$mcmc_result[[chain]]$p_iter_ETA2, app_data$mcmc_result[[chain]]$p_dens_ETA2, 
-                              app_data$mcmc_result[[chain]]$p_iter_ETA3, app_data$mcmc_result[[chain]]$p_dens_ETA3, nrow=4, ncol=2, widths=c(3,1))  
+                              app_data$mcmc_result[[chain]]$p_iter_ETA3, app_data$mcmc_result[[chain]]$p_dens_ETA3, nrow=3, ncol=2, widths=c(3,1))  
     
     
     
   })
+  
+  ## Please comment ASAP
+  
+  updateAdapted_pk_plot <- function(){
+    
+    current_etas <- app_data$mcmc_result$mcmc_etas
+    
+
+    
+    
+    adapted_dosing_events <- app_data$data_set
+    
+    
+    adapted_dosing_events$time <- as.numeric(as.character(adapted_dosing_events$time))
+    adapted_dosing_events$amt <- as.numeric(as.character(adapted_dosing_events$amt))
+    adapted_dosing_events$dur <- as.numeric(as.character(adapted_dosing_events$dur))
+    
+    t <- max(adapted_dosing_events$time)    
+
+
+    time <- t+input$adapt.ii
+    amt <- input$adapt.dose
+    dur <- input$adapt.dur
+    
+    
+    for(i in 2:input$adapt.n){
+      
+
+      time <- c(time, t+input$adapt.ii*i)
+      amt <- c(amt,input$adapt.dose)
+      dur <- c(dur, input$adapt.dur)
+ 
+
+    }
+    
+    x_min <- as.POSIXct.numeric(min(time)*3600,origin=app_data$time_reference)
+    x_max <- as.POSIXct.numeric(max(time+input$adapt.ii)*3600,origin=app_data$time_reference)
+    
+    adapted_dosing_events <- adapted_dosing_events[adapted_dosing_events$evid==1,]
+    
+
+    adapted_dosing_events <- adapted_dosing_events[,-c(3,4)]
+    
+    
+    new_dosing_events <- data.frame(time = time, amt = amt, dur = dur)
+    
+    adapted_dosing_events <- rbind(adapted_dosing_events, new_dosing_events)
+    
+    
+    
+    ## Remove Factors
+    adapted_dosing_events$time <- as.numeric(as.character(adapted_dosing_events$time))
+    adapted_dosing_events$amt <- as.numeric(as.character(adapted_dosing_events$amt))
+    adapted_dosing_events$dur <- as.numeric(as.character(adapted_dosing_events$dur))
+    
+    print(adapted_dosing_events)
+    
+    times <- adapted_dosing_events$time
+    
+    TIME <- seq(min(times), max(times)+input$adapt.ii, by=input$delta.t)
+    
+    mcmc_se <- list()
+   
+    ## get tdm data from the table
+    tdm_data <- data.frame(conc=as.numeric(as.character(app_data$data_set[app_data$data_set$evid==0,]$conc)),
+                           time=as.numeric(as.character(app_data$data_set[app_data$data_set$evid==0,]$time)))
+    
+    withProgress(message = "Performing Simulation...", max = nrow(current_etas), {
+      for (i in 1:nrow(current_etas)) {
+        
+        
+        temp_dat <- pk_2cmt_infusion(theta = THETAS,
+                                     params = app_data$params,
+                                     eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
+                                     dosing_events = adapted_dosing_events,
+                                     times=TIME)
+        
+        mcmc_se[[i]] <- temp_dat$IPRED
+        
+        
+        incProgress(1)
+      }
+    })
+    
+    
+    df_temp <- NULL
+    
+    withProgress(message = "Calculating Prediction Interval...", max = nrow(current_etas), {
+      ## bind simulations in a data.frame
+      for (k in 1:nrow(current_etas)) {
+        df_temp <- rbind(df_temp, mcmc_se[[k]])
+        incProgress(1)
+      }
+    })
+    
+    ## Generate Quantils
+    s <- apply(df_temp,2,function(x) quantile(x,probs=c(0.05, 0.10, 0.15, 0.20, 0.8, 0.85, 0.9, 0.95, 0.5)))
+    
+    ## Combine individual PK data and quantils in a data.frame
+    pk_data <- data.frame(time=TIME,
+                          s1=s[1,],s2=s[8,], 
+                          s3=s[2,],s4=s[7,],
+                          s5=s[3,],s6=s[6,],
+                          s7=s[4,],s8=s[5,],
+                          max=s[9,]) # median 
+    
+    
+    ## Build raw individual PK plot
+    p <- ggplot(pk_data) + 
+      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference) ), fill="red", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference)), fill="red", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference)), fill="red", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference)), fill="red", alpha=0.15) + 
+      geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference)))+
+      geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), y=conc)) +
+      plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Prediction of new Dosing Scheme beginning at last event (Dose or TDM)", "80/85/90/95% PI") + 
+      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1) +
+      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1) + 
+      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1) + scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"), limits = c(x_min,x_max))
+    
+    
+    app_data$adapted_pk_plot <- p
+  }
   
   
   output$modelfile <- renderText({
@@ -211,25 +416,122 @@ shinyServer(function(input, output, session) {
   
   output$info <- renderText({
     
-    ## Show a short info about the currently selected PK Model
-
-    paste("Goti et al. Ther Drug Monit (2018) 40:212–221 ")
+    
+    paste("<h4>1. Please enter below:</h4><h5><BR>Patient covariates, dosing and available TDM data. Then, click the <B>\"Analyze Data\"</B> Button.</h5>")
 
   })
   
-  observeEvent(input$submit,
+  output$info.pk <- renderText({
+    
+    
+    paste("<h4>2. Time-Plasmaconcentration-Curves:</h4><h5><BR>Click the <B>\"Perform Dose Adaptation\"</B> Button for automatic dosing proposal.</h5>")
+    
+  })
+  
+  output$info.adapt <- renderText({
+    
+    
+    paste("<h4>3. Dose Adaptation</h4><h5><BR>Explore and modify dose adaptation. Then, click the <B>\"Continue\"</B> Button to produce a PDF report.</h5>")
+    
+  })
+  
+  output$info.report <- renderText({
+    
+    
+    paste("<h4>4. Create and Export PDF Report:</h4><h5><BR>Click the <B>\"Download Report\"</B> Button.</h5>")
+    
+  })
+  
+  output$info.mcmc <- renderText({
+    
+    
+    paste("<h4>MCMC Diagnostic Plots</h4><h5><BR>Explore the MCMC sampling and the resulting ETA. These plots show, <B>how</B> different this patient is compared to the typical patient</h5>")
+    
+  })
+  
+  output$info.mc <- renderText({
+    
+    
+    paste("<h4>MC Diagnostic Plots</h4><h5><BR>These plots show the population predictions for this patient based solely on the popPK model</h5>")
+    
+  })
+  
+  output$info.dist <- renderText({
+    
+    
+    paste("<h4>Individual Parameter Distribution</h4><h5><BR>These plots show the distributions of population and individual pharmacokinetic parameters.</h5>")
+    
+  })
+  
+  output$info.model <- renderText({
+    
+    
+    paste("<h4>Model File</h4><h5><BR>This is a JAGS compatible model file of the popPK Model <b>Goti et al. Ther Drug Monit (2018) 40:212–221</B></h5>")
+    
+  })
+  
+  output$info.settings <- renderText({
+    
+    
+    paste("<h4>Application Settings</h4><h5><BR>Expert user <B>only!</B></h5>")
+    
+  })
+  
+  output$info.about <- renderText({
+    
+    
+    paste("<h4>About</h4><h5><BR>daGama - VancoSim is free and open source: at <a href=\"https://github.com/OlWaWue/VancoSim\">GitHub</a></h5>")
+    
+  })
+  
+  observeEvent(input$submit, {
                ## Submit changes
                
                app_data$pk_plots <- updatePKPlot()
-
-  )
-  observeEvent(input$but.pkplots,
-               ## Submit changes
                
                updateTabsetPanel(session, inputId = "mainpage", selected = "PK Plots")
-               
+
+  })
+  
+  observeEvent(input$but.adapt, {
+    ## Use dosage adaptation algorithm
+    updateAdapted_pk_plot()
+    updateTabsetPanel(session, inputId = "mainpage", selected = "Dose Adaptation")
+    
+  })
+  
+  observeEvent(input$but.refresh, {
+    ## Use dosage adaptation algorithm
+    updateAdapted_pk_plot()
+    
+  })
+  
+  observeEvent(input$but.report, {
+    ## Use dosage adaptation algorithm
+    
+    updateTabsetPanel(session, inputId = "mainpage", selected = "Clinical Report")
+    
+  })
+
+  output$vers <- renderText({
+    includeText("version.txt")
+  })
+  
+  output$but.download = downloadHandler(
+    
+    ## Filename includes patiend ID
+    filename = paste("report_", input$ID, ".pdf", sep=""),
+    content = function(file) {
+      withProgress(message = "Compiling report ...", style="notification", value =0 ,{
+        library(rmarkdown)
+        
+        incProgress(0.33)
+        out <- render('report.Rmd', output_format=pdf_document(latex_engine = "xelatex"))
+        incProgress(0.33)
+        file.rename(out, file)
+        incProgress(0.34)
+      })
+    }
   )
-  
-  
   
 })
