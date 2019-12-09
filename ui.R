@@ -6,18 +6,18 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                             htmlOutput("info"),hr(),
                             sidebarLayout(
                               sidebarPanel(
-                                
+                                useShinyjs(), 
                                 
                                 actionButton("submit", label = "Analyze Data", icon = icon("chart-bar"), width = NULL),
                                 
                                 br(),br(),
-                                wellPanel("Patient Information",
+                                wellPanel("Patient Information",br(), br(),
                                           textInput(inputId="pat_ID", label="Patient ID", value="PAT0001"),
                                           numericInput(inputId="WT", label="Body weight [kg]", value =70),
                                           numericInput(inputId="CRCL", label="Creatinine Clearance [mL/min]", value =120),
                                           checkboxInput("has_dialysis", "Dialysis?", value = F)
                                 ),
-                                wellPanel("Pathogen Information",
+                                wellPanel("Pathogen Information", br(), br(),
                                           selectInput("choose_pathogen", "Pathogen:", selected=1, list("MRSA"=1, 
                                                                                                        "Unidentified"=2, 
                                                                                                        "Mixed infection"=3)),
@@ -45,7 +45,12 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                    tabPanel("PK Plots", htmlOutput("info.pk"),hr(),
                             sidebarLayout(
                               sidebarPanel(
-                                actionButton("but.adapt", label = "Perform Dose Adaptation", icon = icon("calculator"), width = NULL)
+                                actionButton("but.adapt", label = "Perform Dose Adaptation", icon = icon("calculator"), width = NULL),br(),br(),
+                                selectInput("adapt.for", "Adapt for:", selected=1, list("Cmin in therapeutic range"=1)),
+                                selectInput("adapt.what", "Adapt ...", selected=1, list("Dose"=1, 
+                                                                                        "Interdose Interval"=2,
+                                                                                        "Infusion Duration"=3,
+                                                                                        "All of those"=4))
                               ),
                               mainPanel(
                                 plotOutput("pkPlot", height = 800)
@@ -57,9 +62,9 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                               sidebarPanel(
                                 actionButton("but.report", label = "Continue", icon = icon("file-alt"), width = NULL),br(),br(),
                                 numericInput(inputId="adapt.dose", label="New Dose [mg]", value =1000),
-                                numericInput(inputId="adapt.ii", label="New Interdose Interval [h]", value = 12),
-                                numericInput(inputId="adapt.dur", label="New Duration of Infusion [h]", value = 0.5),
-                                numericInput(inputId="adapt.n", label="Number of Dosing Events to simulate", value = 3),
+                                numericInput(inputId="adapt.ii", label="New Interdose Interval [min]", value = 12),
+                                numericInput(inputId="adapt.dur", label="New Duration of Infusion [h]", value = 30),
+                                numericInput(inputId="adapt.n", label="Number of Dosing Events to simulate", value = 5),
                                 actionButton("but.refresh", label = "Refresh Simulation", icon = icon("refresh"), width = NULL)
                               ),
                               mainPanel(
@@ -102,9 +107,9 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                    tabPanel("Model File", htmlOutput("info.model"),hr(),
                             verbatimTextOutput("modelfile")),
                     tabPanel("Settings", htmlOutput("info.settings"),hr(),
-                             numericInput(inputId="mcmc.iter", label="Iterations MCMC", value =1000),
-                             numericInput(inputId="mc.iter", label="Iterations MC", value =1000),
-                             numericInput(inputId="mcmc.burn", label="Burn-in Iterations MCMC", value =200),
+                             numericInput(inputId="mcmc.iter", label="Iterations MCMC", value =100),
+                             numericInput(inputId="mc.iter", label="Iterations MC", value =100),
+                             numericInput(inputId="mcmc.burn", label="Burn-in Iterations MCMC", value =20),
                              numericInput(inputId="delta.t", label="Delta time [h]", value =0.5),
                              numericInput(inputId="simulate.t", label="Simulate time [h]", value =0),
                              numericInput(inputId="low.target", label="Target Throughconcentration [mg/L]", value =10),

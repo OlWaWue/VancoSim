@@ -9,7 +9,16 @@ shinyServer(function(input, output, session) {
       return(NULL)
     
     tryCatch({
-      app_data$data_set <- read_xlsx(inFile$datapath)
+      
+      temp <- convert_xlsx_to_NMTRAN(read_excel(inFile$datapath))
+      
+      
+      
+      app_data$data_set <- temp$conv_data
+      app_data$user_data_set <- temp$original_data
+      app_data$time_reference <- as.Date.POSIXct(temp$time_reference)
+      
+      
     },
     error = function(e){
       showModal(modalDialog(
@@ -203,14 +212,15 @@ shinyServer(function(input, output, session) {
       ))
     }
     
+    if(is.null(app_data$data_set)){
     
-    temp <- convert_xlsx_to_NMTRAN(read_excel("./example_dat.xlsx"))
+      temp <- convert_xlsx_to_NMTRAN(read_excel("./example_dat.xlsx"))
+      
+      app_data$data_set <- temp$conv_data
+      app_data$user_data_set <- temp$original_data
+      app_data$time_reference <- as.Date.POSIXct(temp$time_reference)
     
-    app_data$data_set <- temp$conv_data
-    app_data$user_data_set <- temp$original_data
-    app_data$time_reference <- as.Date.POSIXct(temp$time_reference)
-    
-    
+    }
     
     display_data <-app_data$user_data_set
     
@@ -297,21 +307,22 @@ shinyServer(function(input, output, session) {
     adapted_dosing_events$dur <- as.numeric(as.character(adapted_dosing_events$dur))
     
     t <- max(adapted_dosing_events$time)    
-
-
-    time <- t+input$adapt.ii
-    amt <- input$adapt.dose
-    dur <- input$adapt.dur
     
     
-    for(i in 2:input$adapt.n){
+    time <- NULL
+    amt <- NULL
+    dur <- NULL
+    
+    
+    
+    for(i in 1:input$adapt.n){
       
-
-      time <- c(time, t+input$adapt.ii*i)
+      
+      time <- c(time, t+(input$adapt.ii)*i)
       amt <- c(amt,input$adapt.dose)
-      dur <- c(dur, input$adapt.dur)
- 
-
+      dur <- c(dur, input$adapt.dur/60)
+      
+      
     }
     
     x_min <- as.POSIXct.numeric(min(time)*3600,origin=app_data$time_reference)
@@ -319,7 +330,7 @@ shinyServer(function(input, output, session) {
     
     adapted_dosing_events <- adapted_dosing_events[adapted_dosing_events$evid==1,]
     
-
+    
     adapted_dosing_events <- adapted_dosing_events[,-c(3,4)]
     
     
@@ -334,11 +345,12 @@ shinyServer(function(input, output, session) {
     adapted_dosing_events$amt <- as.numeric(as.character(adapted_dosing_events$amt))
     adapted_dosing_events$dur <- as.numeric(as.character(adapted_dosing_events$dur))
     
-   
+    
     
     times <- adapted_dosing_events$time
     
     TIME <- seq(min(times), max(times)+input$adapt.ii, by=input$delta.t)
+    
     
     mcmc_se <- list()
    
@@ -495,9 +507,272 @@ shinyServer(function(input, output, session) {
   
   observeEvent(input$but.adapt, {
     ## Use dosage adaptation algorithm
-    updateAdapted_pk_plot()
-    updateTabsetPanel(session, inputId = "mainpage", selected = "Dose Adaptation")
+    current_etas <- app_data$mcmc_result$mcmc_etas
     
+    obj_fun_all <- function(par, data_set, N) {
+      
+      AMT=par[1]
+      II=par[2]
+      DUR=par[3]
+      
+      dos_ev <- data_set[data_set$evid==1,]
+      
+      dos_ev$time <- as.numeric(as.character(dos_ev$time))
+      dos_ev$amt <- as.numeric(as.character(dos_ev$amt))
+      dos_ev$dur <- as.numeric(as.character(dos_ev$dur))
+      
+      t <- max(dos_ev$time)  
+      
+      time <- NULL
+      amt <- NULL
+      dur <- NULL
+      
+      
+      for(i in 1:N){
+        
+        
+        time <- c(time, t+(II)*i)
+        amt <- c(amt, AMT)
+        dur <- c(dur, DUR/60)
+        
+        
+      }
+      
+      
+      
+      temp <- data.frame(time=time, amt=amt, dur=dur)
+      
+      
+      tested_dosing_events <- rbind(dos_ev[,-c(3,4)], temp)
+      
+      cmins_adapt <- NULL
+      
+      withProgress(message = "Autoadaptation...", max = nrow(current_etas), {
+        for (i in 1:nrow(current_etas)) {
+          
+          
+          temp_dat <- pk_2cmt_infusion(theta = THETAS,
+                                       params = app_data$params,
+                                       eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
+                                       dosing_events = tested_dosing_events,
+                                       times=max(tested_dosing_events$time)+II)
+          
+          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED)
+          
+          
+          incProgress(1)
+        }
+      })
+      
+      above <- (length(cmins_adapt[cmins_adapt>input$high.target])/length(cmins_adapt)*100)
+      below <- (length(cmins_adapt[cmins_adapt<input$low.target])/length(cmins_adapt)*100)
+      
+      return((above+below))
+    }
+    
+    obj_fun_dose <- function(par, II, DUR, data_set, N) {
+      
+      AMT=par[1]
+      
+      dos_ev <- data_set[data_set$evid==1,]
+      
+      dos_ev$time <- as.numeric(as.character(dos_ev$time))
+      dos_ev$amt <- as.numeric(as.character(dos_ev$amt))
+      dos_ev$dur <- as.numeric(as.character(dos_ev$dur))
+      
+      t <- max(dos_ev$time)  
+      
+      time <- NULL
+      amt <- NULL
+      dur <- NULL
+      
+      
+      for(i in 1:N){
+        
+        
+        time <- c(time, t+(II)*i)
+        amt <- c(amt, AMT)
+        dur <- c(dur, DUR/60)
+        
+        
+      }
+      
+      
+      
+      temp <- data.frame(time=time, amt=amt, dur=dur)
+      
+      
+      tested_dosing_events <- rbind(dos_ev[,-c(3,4)], temp)
+      
+      cmins_adapt <- NULL
+      
+      withProgress(message = "Autoadaptation...", max = nrow(current_etas), {
+        for (i in 1:nrow(current_etas)) {
+          
+          
+          temp_dat <- pk_2cmt_infusion(theta = THETAS,
+                                       params = app_data$params,
+                                       eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
+                                       dosing_events = tested_dosing_events,
+                                       times=max(tested_dosing_events$time)+II)
+          
+          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED)
+          
+          
+          incProgress(1)
+        }
+      })
+      
+      above <- (length(cmins_adapt[cmins_adapt>input$high.target])/length(cmins_adapt)*100)
+      below <- (length(cmins_adapt[cmins_adapt<input$low.target])/length(cmins_adapt)*100)
+
+      return((above+below))
+    }
+    obj_fun_ii <- function(par, AMT, DUR, data_set, N) {
+      
+      II=par[1]
+      
+      dos_ev <- data_set[data_set$evid==1,]
+      
+      dos_ev$time <- as.numeric(as.character(dos_ev$time))
+      dos_ev$amt <- as.numeric(as.character(dos_ev$amt))
+      dos_ev$dur <- as.numeric(as.character(dos_ev$dur))
+      
+      t <- max(dos_ev$time)  
+      
+      time <- NULL
+      amt <- NULL
+      dur <- NULL
+      
+      
+      for(i in 1:N){
+        
+        
+        time <- c(time, t+(II)*i)
+        amt <- c(amt, AMT)
+        dur <- c(dur, DUR/60)
+        
+        
+      }
+      
+      
+      
+      temp <- data.frame(time=time, amt=amt, dur=dur)
+      
+      
+      tested_dosing_events <- rbind(dos_ev[,-c(3,4)], temp)
+      
+      cmins_adapt <- NULL
+      
+      withProgress(message = "Autoadaptation...", max = nrow(current_etas), {
+        for (i in 1:nrow(current_etas)) {
+          
+          
+          temp_dat <- pk_2cmt_infusion(theta = THETAS,
+                                       params = app_data$params,
+                                       eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
+                                       dosing_events = tested_dosing_events,
+                                       times=max(tested_dosing_events$time)+II)
+          
+          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED)
+          
+          
+          incProgress(1)
+        }
+      })
+      
+      above <- (length(cmins_adapt[cmins_adapt>input$high.target])/length(cmins_adapt)*100)
+      below <- (length(cmins_adapt[cmins_adapt<input$low.target])/length(cmins_adapt)*100)
+      
+      return((above+below))
+    }
+    
+    obj_fun_dur <- function(par, AMT, II, data_set, N) {
+      
+      DUR=par[1]
+      
+      dos_ev <- data_set[data_set$evid==1,]
+      
+      dos_ev$time <- as.numeric(as.character(dos_ev$time))
+      dos_ev$amt <- as.numeric(as.character(dos_ev$amt))
+      dos_ev$dur <- as.numeric(as.character(dos_ev$dur))
+      
+      t <- max(dos_ev$time)  
+      
+      time <- NULL
+      amt <- NULL
+      dur <- NULL
+      
+      
+      for(i in 1:N){
+        
+        
+        time <- c(time, t+(II)*i)
+        amt <- c(amt, AMT)
+        dur <- c(dur, DUR/60)
+        
+        
+      }
+      
+      
+      
+      temp <- data.frame(time=time, amt=amt, dur=dur)
+      
+      
+      tested_dosing_events <- rbind(dos_ev[,-c(3,4)], temp)
+      
+      cmins_adapt <- NULL
+      
+      withProgress(message = "Autoadaptation...", max = nrow(current_etas), {
+        for (i in 1:nrow(current_etas)) {
+          
+          
+          temp_dat <- pk_2cmt_infusion(theta = THETAS,
+                                       params = app_data$params,
+                                       eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
+                                       dosing_events = tested_dosing_events,
+                                       times=max(tested_dosing_events$time)+II)
+          
+          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED)
+          
+          
+          incProgress(1)
+        }
+      })
+      
+      above <- (length(cmins_adapt[cmins_adapt>input$high.target])/length(cmins_adapt)*100)
+      below <- (length(cmins_adapt[cmins_adapt<input$low.target])/length(cmins_adapt)*100)
+      
+      return((above+below))
+    }
+    
+    if(input$adapt.what==4) {
+    
+      opt_res <- optim(par=c(AMT=1000, II=12, DUR=30), fn=obj_fun_all, data_set=app_data$data_set, N=input$adapt.n)
+      
+      updateNumericInput(session, inputId = "adapt.ii", value = round(as.numeric(as.character(opt_res$par[2])),2) )
+      updateNumericInput(session, inputId = "adapt.dose", value = round(as.numeric(as.character(opt_res$par[1])),2) )
+      updateNumericInput(session, inputId = "adapt.dur", value = round(as.numeric(as.character(opt_res$par[3])),2) )
+    } else if(input$adapt.what==1) {
+      opt_res <- optim(par=c(AMT=input$adapt.dose), fn=obj_fun_dose, data_set=app_data$data_set, N=input$adapt.n, II=input$adapt.ii, DUR=input$adapt.dur, method="Brent", lower=0,upper=5000,
+                       control=list(maxit=500))
+      
+      updateNumericInput(session, inputId = "adapt.dose", value = round(as.numeric(as.character(opt_res$par[1])),2) )
+    } else if(input$adapt.what==2) {
+      opt_res <- optim(par=c(II=input$adapt.ii), fn=obj_fun_ii, data_set=app_data$data_set, N=input$adapt.n, AMT=input$adapt.dose, DUR=input$adapt.dur, method="Brent", lower=6,upper=24,
+                       control=list(maxit=500))
+      
+      updateNumericInput(session, inputId = "adapt.ii", value = round(as.numeric(as.character(opt_res$par[1])),2) )
+    } else if(input$adapt.what==3) {
+      opt_res <- optim(par=c(DUR=input$adapt.dur), fn=obj_fun_dur, data_set=app_data$data_set,II=input$adapt.ii, N=input$adapt.n, AMT=input$adapt.dose, method="Brent", lower=30,upper=120)
+      
+      updateNumericInput(session, inputId = "adapt.dur", value = round(as.numeric(as.character(opt_res$par[1])),2) )
+    }
+    
+    updateTabsetPanel(session, inputId = "mainpage", selected = "Dose Adaptation")
+    delay(1000,
+      updateAdapted_pk_plot()
+    )
   })
   
   observeEvent(input$but.refresh, {

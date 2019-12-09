@@ -10,6 +10,7 @@ library('lubridate')
 library('DT')
 library('scales')
 
+
 #Set Color scheme
 main_plot_col <- "#E95420"
 sec_plot_col <- "grey20"
