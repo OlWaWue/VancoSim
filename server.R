@@ -77,7 +77,7 @@ shinyServer(function(input, output, session) {
                             amt = data$AMT,
                             conc = data$CONC,
                             evid = data$EVID,
-                            dur = data$DUR)
+                            dur = as.numeric(data$DUR)/60)
     
     return(list(original_data=orig_data,
                 conv_data=conv_data,
@@ -334,7 +334,7 @@ shinyServer(function(input, output, session) {
     adapted_dosing_events$amt <- as.numeric(as.character(adapted_dosing_events$amt))
     adapted_dosing_events$dur <- as.numeric(as.character(adapted_dosing_events$dur))
     
-    print(adapted_dosing_events)
+   
     
     times <- adapted_dosing_events$time
     
