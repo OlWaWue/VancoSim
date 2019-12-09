@@ -2,6 +2,7 @@ library('rjags')
 library('ggplot2')
 library('readxl')
 library('shiny')
+library('shinyjs')
 library('gridExtra')
 
 THETAS = c(4.5,  ## THETA1 -  clearance (L/h)

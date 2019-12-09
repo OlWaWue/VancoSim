@@ -92,7 +92,10 @@ shinyServer(function(input, output, session) {
     
     ind_plot <- app_data$mcmc_result[[4]] + theme_bw() + xlab("Time [h]") + ylab("Concentration [mg/L]") +
       ggtitle("MCMC Result including data (posterior)", "80/85/90/95% PI") + 
-      geom_line(data=plot_dat, aes(x=TIME, y=CP), colour="blue", linetype=2) + ylim(c(0,ind_y_max*1.2))
+      geom_line(data=plot_dat, aes(x=TIME, y=CP), colour="blue", linetype=2) + ylim(c(0,ind_y_max*1.2)) +
+      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1.5) +
+      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1.5) +
+      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1.5)
     
     ## prepare population boxplot
     pop_boxplot <- ggplot(data=data.frame(conc=dat_mc[,ncol(dat_mc)], time="")) + geom_boxplot(aes(x=time, y=conc)) + theme_bw()  +
@@ -104,10 +107,14 @@ shinyServer(function(input, output, session) {
     pop_plot <- ggplot(data=plot_dat)  + geom_line(aes(x=TIME, y=CP), colour="blue") +
       geom_ribbon(aes(x=TIME, ymax=CP_max, ymin=CP_min), alpha=0.15, fill="blue") +
       theme_bw() + xlab("Time [h]") + ylab("Concentration [mg/L]") + ggtitle("MC Result without data (prior)", "95% PI") +
-      geom_point(data=tdm_data, aes(x=time, y=conc)) + ylim(c(0,pop_y_max*1.2))
+      geom_point(data=tdm_data, aes(x=time, y=conc)) + ylim(c(0,pop_y_max*1.2)) +
+      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1.5) +
+      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1.5) +
+      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1.5)
     
     
     plots <- list(ind_plot, pop_plot, ind_boxplot, pop_boxplot)
+
   }
   
   output$pkPlot <- renderPlot({
@@ -115,13 +122,17 @@ shinyServer(function(input, output, session) {
     
     grid.arrange(app_data$pk_plots[[2]], app_data$pk_plots[[4]], 
                  app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=2, ncol=2,widths=c(4,1))
+    
+    
   })
   
   output$data_set <- renderTable({
     
+    
     display_data <-app_data$data_set
     
     display_data
+    
     
   })
   
@@ -210,6 +221,13 @@ shinyServer(function(input, output, session) {
                ## Submit changes
                
                app_data$pk_plots <- updatePKPlot()
+
+  )
+  observeEvent(input$but.pkplots,
+               ## Submit changes
+               
+               updateTabsetPanel(session, inputId = "mainpage", selected = "PK Plots")
+               
   )
   
   
