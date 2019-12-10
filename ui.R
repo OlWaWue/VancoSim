@@ -18,9 +18,7 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                           checkboxInput("has_dialysis", "Dialysis?", value = F)
                                 ),
                                 wellPanel("Pathogen Information", br(), br(),
-                                          selectInput("choose_pathogen", "Pathogen:", selected=1, list("MRSA"=1, 
-                                                                                                       "Unidentified"=2, 
-                                                                                                       "Mixed infection"=3)),
+                                          selectInput("choose_pathogen", "Pathogen:", selected=1, GLOB_PATHOGENS),
                                           numericInput(inputId="MIC", label="MIC [mg/L]", value =5)
                                 )
                               ),

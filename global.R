@@ -9,7 +9,11 @@ library('PerformanceAnalytics')
 library('lubridate')
 library('DT')
 library('scales')
+library('kableExtra')
 
+GLOB_PATHOGENS <- c("MRSA"=1, 
+     "Unidentified"=2, 
+     "Mixed infection"=3)
 
 #Set Color scheme
 main_plot_col <- "#E95420"

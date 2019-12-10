@@ -1,0 +1,118 @@
+---
+header-includes:
+    - \usepackage{fancyhdr}
+    - \fancyfoot[CO,CE]{OSC-Group - http://www.osc-lab.de - JMU Wuerzburg - Pharmazie}
+    - \fancyfoot[LE,RO]{\thepage}
+    - \usepackage{fontspec}
+    - \setmainfont{FreeSans}
+    
+title: "TDM Report - Vancomycin"
+output: 
+  pdf_document:
+    latexengine: xelatex
+df_print: paged
+date: "`r format(Sys.time(), '%d.%B %Y')`"
+
+
+---
+\setmainfont{FreeSans}
+\addtolength{\headheight}{1.0cm} 
+\pagestyle{fancyplain} 
+\rhead{\includegraphics[height=1.2cm]{./logo_rechts.png}} 
+\lhead{\includegraphics[height=1.2cm]{./logo_links.png}}
+\renewcommand{\headrulewidth}{0pt}
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **1. Patient characteristics**
+
+  
+Patient ID: **`r input$pat_ID`** 
+  
+Body weight: **`r input$WT`** kg 
+
+Creatinine Clearance: **`r input$CRCL`** mL/min
+
+Receives Dialysis: **`r input$has_dialysis`**
+
+  
+    
+``` {r ind_pars, echo=FALSE}
+
+
+```
+
+
+# **2. Pathogen Information**
+
+Pathogen:  **`r names(GLOB_PATHOGENS[as.numeric(input$choose_pathogen)])`**
+
+MIC: **`r input$MIC`** mg/L
+
+``` {r scheme, echo=FALSE}
+
+```
+
+# **Clinical Recommendation**
+
+**`r input$choose_recommendation` **
+  
+ 
+`r input$report_comment`
+
+`r if(input$additional_tdm){
+"Additional TDM samples should be obtained"
+} ` 
+
+`r if(input$add_dur_info){
+"Infusion Duration should not fall below 30 min. CAVE: Red-Man-Syndrome!"
+} ` 
+
+``` {r recomm, echo=FALSE}
+
+
+
+```
+
+# **Used Dataset**
+
+Measured Plasmaconcentrations (Last 10 concentrations)
+
+``` {r tdm, echo=FALSE}
+
+kable(app_data$user_data_set, format = "latex")  %>%
+    kable_styling(position = "left")
+
+```
+
+# **Simulated Plasmaconcentration**
+
+  
+
+```{r simulation, echo=FALSE}
+
+
+```
+
+# **2. Dose Adaptation**
+
+
+```{r mcmc_res, echo=FALSE}
+    plot(app_data$adapted_pk_plot)
+```
+
+
+# **MCMC Diagnostic Plots**
+
+```{r mcmc_diag, echo=FALSE}
+
+gridExtra::grid.arrange(app_data$mcmc_result[[4]]$p_iter_ETA1, app_data$mcmc_result[[4]]$p_dens_ETA1,    
+                              app_data$mcmc_result[[4]]$p_iter_ETA2, app_data$mcmc_result[[4]]$p_dens_ETA2, 
+                              app_data$mcmc_result[[4]]$p_iter_ETA3, app_data$mcmc_result[[4]]$p_dens_ETA3, nrow=3, ncol=2, widths=c(3,1))  
+
+chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
+
+```
