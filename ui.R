@@ -33,7 +33,7 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                           accept = c(".xlsx", ".xls"),                                     
                                           width = NULL,buttonLabel = "Browse...", 
                                           placeholder = "No file selected"),
-                                h6("Use an Excel File with similar structure (see Table)"),
+                                h4("Use an Excel File with similar structure (see Table)"),br(),br(),
                                 wellPanel("Dataset used in the computation",
                                           DT::dataTableOutput("data_set")
                                 )
@@ -43,12 +43,14 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                    tabPanel("PK Plots", htmlOutput("info.pk"),hr(),
                             sidebarLayout(
                               sidebarPanel(
-                                actionButton("but.adapt", label = "Perform Dose Adaptation", icon = icon("calculator"), width = NULL),br(),br(),
+                                actionButton("but.man_adapt", label = "Manual Dose Adaptation", icon = icon("hand-paper"), width = NULL),br(),br(),
+                                actionButton("but.adapt", label = "Automatic Dose Adaptation", icon = icon("calculator"), width = NULL),br(),br(),
                                 selectInput("adapt.for", "Adapt for:", selected=1, GLOB_ADAPT_FOR),
                                 selectInput("adapt.what", "Adapt ...", selected=1, GLOB_ADAPT_WHAT)
+                                
                               ),
                               mainPanel(
-                                plotOutput("pkPlot", height = 800)
+                                plotOutput("pkPlot", height = 600)
                               )
                             )
                     ),
@@ -56,15 +58,15 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                             sidebarLayout(
                               sidebarPanel(
                                 actionButton("but.report", label = "Continue", icon = icon("file-alt"), width = NULL),br(),br(),
-                                numericInput(inputId="adapt.dose", label="New Dose [mg]", value =1000),
-                                numericInput(inputId="adapt.ii", label="New Interdose Interval [h]", value = 12),
-                                numericInput(inputId="adapt.dur", label="New Duration of Infusion [min]", value = 30),
-                                numericInput(inputId="adapt.n", label="Number of Dosing Events to simulate", value = 5),
+                                numericInput(inputId="adapt.dose", label="New Dose [mg]", value =1000, step=100, min=0),
+                                numericInput(inputId="adapt.ii", label="New Interdose Interval [h]", value = 12, step=1, min = 6),
+                                numericInput(inputId="adapt.dur", label="New Duration of Infusion [min]", value = 60, step=10, min=10),
+                                numericInput(inputId="adapt.n", label="Number of Dosing Events to simulate", value = 5, step=1, min=3),
                                 actionButton("but.reset", label = "Reset to last known dose", icon = icon("undo"), width = NULL),
                                 actionButton("but.refresh", label = "Refresh Simulation", icon = icon("refresh"), width = NULL)
                               ),
                               mainPanel(
-                                plotOutput("adapted_pkPlot", height = 800)
+                                plotOutput("adapted_pkPlot", height = 600)
                               )
                             )  
                    ),
@@ -111,7 +113,7 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                              numericInput(inputId="mcmc.iter", label="Iterations MCMC", value =1000),
                              numericInput(inputId="mc.iter", label="Iterations MC", value =1000),
                              numericInput(inputId="mcmc.burn", label="Burn-in Iterations MCMC", value =200),
-                             numericInput(inputId="delta.t", label="Delta time [h]", value =0.5),
+                             numericInput(inputId="delta.t", label="Delta time [h]", value =0.25),
                              numericInput(inputId="simulate.t", label="Simulate time [h]", value =0),
                              numericInput(inputId="low.target", label="Target Throughconcentration [mg/L]", value =10),
                              numericInput(inputId="high.target", label="Limit Cmax [mg/L]", value =20)

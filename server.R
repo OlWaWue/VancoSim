@@ -71,9 +71,8 @@ shinyServer(function(input, output, session) {
   )
   
   reset_adapt_to_last_known_dose <- function(){
-    
-   
-    updateNumericInput(session, inputId = "adapt.ii", value = round(as.numeric(as.character(last_known_dose_orig$II)),2) )
+
+    updateNumericInput(session, inputId = "adapt.ii", value = round(as.numeric(as.character(app_data$last_known_dose_orig$II)),2) )
     updateNumericInput(session, inputId = "adapt.dose", value = round(as.numeric(as.character(app_data$last_known_dose_orig$AMT)),2) )
     updateNumericInput(session, inputId = "adapt.dur", value = round(as.numeric(as.character(app_data$last_known_dose_orig$DUR)),2) )
     
@@ -331,8 +330,9 @@ shinyServer(function(input, output, session) {
     chain = as.numeric(input$select_chain)
     
     ## Show correlation matrix - the lazy way
-    chart.Correlation(app_data$mcmc_result[[chain]]$chain_data, histogram=TRUE)
-    
+    if(app_data$tdm_samples_available){
+      chart.Correlation(app_data$mcmc_result[[chain]]$chain_data, histogram=TRUE)
+    }
     
   })
   
@@ -360,11 +360,12 @@ shinyServer(function(input, output, session) {
     
     ## Has to be generalized 
     
-    
+    if(app_data$tdm_samples_available){
     ## 
       gridExtra::grid.arrange(app_data$mcmc_result[[chain]]$p_iter_ETA1, app_data$mcmc_result[[chain]]$p_dens_ETA1,    
                               app_data$mcmc_result[[chain]]$p_iter_ETA2, app_data$mcmc_result[[chain]]$p_dens_ETA2, 
                               app_data$mcmc_result[[chain]]$p_iter_ETA3, app_data$mcmc_result[[chain]]$p_dens_ETA3, nrow=3, ncol=2, widths=c(3,1))  
+    }
     
     
     
@@ -521,7 +522,7 @@ shinyServer(function(input, output, session) {
   output$info.pk <- renderText({
     
     
-    paste("<h4>2. Time-Plasmaconcentration-Curves:</h4><h5><BR>Click the <B>\"Perform Dose Adaptation\"</B> Button for automatic dosing proposal.</h5>")
+    paste("<h4>2. Time-Plasmaconcentration-Curves:</h4><h5><BR>Click the <B>\"Automatic Dose Adaptation\"</B> Button for automatic dosing proposal or choose <B>\"Manual Dose Adaptation\"</B>.</h5>")
     
   })
   
@@ -896,6 +897,20 @@ shinyServer(function(input, output, session) {
     delay(1000,
           updateAdapted_pk_plot()
           )
+    
+  })
+  
+  observeEvent(input$but.man_adapt, {
+    
+    ## Use manual adaptation adaptation algorithm
+    
+    updateTabsetPanel(session, inputId = "mainpage", selected = "Dose Adaptation")
+    
+    reset_adapt_to_last_known_dose()
+    
+    delay(1000,
+          updateAdapted_pk_plot()
+    )
     
   })
   

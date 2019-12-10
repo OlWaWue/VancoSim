@@ -93,7 +93,7 @@ plot(app_data$adapted_pk_plot)
 # **Dataset used**
 
 
-``` {r tdm, echo=FALSE}
+``` {r tdm, echo=FALSE, warning=FALSE}
 
 kable(app_data$user_data_set, format = "latex")  %>%
     kable_styling(position = "left")
@@ -119,7 +119,7 @@ grid.arrange(app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=1, ncol=2,widt
 
 # **MCMC Diagnostic Plots (1/2)**
 
-```{r mcmc_diag, echo=FALSE}
+```{r mcmc_diag, echo=FALSE, warning=FALSE}
 if(app_data$tdm_samples_available){
 gridExtra::grid.arrange(app_data$mcmc_result[[4]]$p_iter_ETA1, app_data$mcmc_result[[4]]$p_dens_ETA1,    
                               app_data$mcmc_result[[4]]$p_iter_ETA2, app_data$mcmc_result[[4]]$p_dens_ETA2, 
@@ -132,7 +132,7 @@ gridExtra::grid.arrange(app_data$mcmc_result[[4]]$p_iter_ETA1, app_data$mcmc_res
 
 # **MCMC Diagnostic Plots (2/2)**
 
-```{r mcmc_diag_2, echo=FALSE}
+```{r mcmc_diag_2, echo=FALSE, warning=FALSE}
 if(app_data$tdm_samples_available){
 chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
 }
@@ -144,7 +144,7 @@ chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
 # **MC Diagnostic Plots**
 
 
-```{r mc_diag, echo=FALSE}
+```{r mc_diag, echo=FALSE, warning=FALSE}
     chart.Correlation(app_data$mc_result[[3]], histogram=TRUE)
 ```
 
@@ -154,6 +154,6 @@ chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
 # **Simulted Parameter distributions**
 
 
-```{r par_dist, echo=FALSE}
+```{r par_dist, echo=FALSE, warning=FALSE}
     grid.arrange(app_data$dist_plots[[1]],app_data$dist_plots[[2]],app_data$dist_plots[[3]], nrow=3, ncol=1)
 ```
