@@ -117,7 +117,7 @@ grid.arrange(app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=1, ncol=2,widt
 
 \pagebreak
 
-# **MCMC Diagnostic Plots (1/2)**
+# **MCMC Diagnostic Plots (1/2) - Results of Gibbs-Sampling and prior vs posterior distribution**
 
 ```{r mcmc_diag, echo=FALSE, warning=FALSE}
 if(app_data$tdm_samples_available){
@@ -130,7 +130,7 @@ gridExtra::grid.arrange(app_data$mcmc_result[[4]]$p_iter_ETA1, app_data$mcmc_res
 
 \pagebreak
 
-# **MCMC Diagnostic Plots (2/2)**
+# **MCMC Diagnostic Plots (2/2) - distribution and correlation of random effects**
 
 ```{r mcmc_diag_2, echo=FALSE, warning=FALSE}
 if(app_data$tdm_samples_available){
@@ -141,7 +141,7 @@ chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
 
 \pagebreak
 
-# **MC Diagnostic Plots**
+# **MC Diagnostic Plots - distribution and correlation of random effects**
 
 
 ```{r mc_diag, echo=FALSE, warning=FALSE}
@@ -151,7 +151,7 @@ chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
 
 \pagebreak
 
-# **Simulted Parameter distributions**
+# **Simulated PK Parameter distributions**
 
 
 ```{r par_dist, echo=FALSE, warning=FALSE}

@@ -140,6 +140,8 @@ shinyServer(function(input, output, session) {
                                                 app_data, ## App Data for Dosing / TDM Data
                                                 min(times), max(times)+input$simulate.t, input$delta.t) ## Time to simulate
     
+    temp_time <- seq(min(times), max(times)+input$simulate.t, by=input$delta.t)
+    
     if(app_data$tdm_samples_available) {
     
     app_data$mcmc_result = process_data_set(app_data$data_set, n.iter = input$mcmc.iter, n.burn = input$mcmc.burn,
@@ -161,13 +163,15 @@ shinyServer(function(input, output, session) {
     
     ## prepare individual PK plot
     
+    
+    
     ind_plot <- app_data$mcmc_result[[5]] + plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") +
       ggtitle("Individual Prediction Using TDM Data and Covariates", "80/85/90/95% PI") + 
       # geom_line(data=plot_dat, aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), y=CP), colour="blue", linetype=2) +  ## Uncomment this line for additional popPrediction
       ylim(c(0,ind_y_max*1.1)) +
       geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1) +
-      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1) +
-      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1) + scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"))
+      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(temp_time*3600, origin=app_data$time_reference)),fill="darkgreen", alpha=0.3) + 
+      scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"))
     
     ind_pars <- (app_data$mcmc_result[[10]])
     
@@ -197,8 +201,7 @@ shinyServer(function(input, output, session) {
       plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Population Prediction Using Patient Covariates", "95% PI") +
       ylim(c(0,pop_y_max*1.1)) +
       geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1) +
-      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1) +
-      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1) + scale_x_datetime( labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) 
+      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(temp_time*3600, origin=app_data$time_reference)),fill="darkgreen", alpha=0.3) +  scale_x_datetime( labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) 
       
     
     
@@ -494,8 +497,7 @@ shinyServer(function(input, output, session) {
       geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), y=conc)) +
       plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Prediction of new Dosing Scheme beginning at last event (Dose or TDM)", "80/85/90/95% PI") + 
       geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1) +
-      geom_hline(aes(yintercept=input$low.target), linetype=2, colour="red", size=1) + 
-      geom_hline(aes(yintercept=input$high.target), linetype=2, colour="green", size=1) + scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"), limits = c(x_min,x_max))
+      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference)),fill="darkgreen", alpha=0.3) +  scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"), limits = c(x_min,x_max))
     
     
     app_data$adapted_pk_plot <- p

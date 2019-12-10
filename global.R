@@ -249,7 +249,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
       geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="blue", alpha=0.15) + 
       geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="blue", alpha=0.15) + 
       geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=time_reference)))+
-      geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=time_reference), y=conc))
+      geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=time_reference), y=conc), size=3, shape=1, colour="firebrick", stroke=2)
     
     ## Get the last simulated concentration for the boxplot
     c_at_tlast <- df_temp[,ncol(df_temp)]
