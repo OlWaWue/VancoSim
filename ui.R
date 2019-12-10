@@ -44,11 +44,8 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                             sidebarLayout(
                               sidebarPanel(
                                 actionButton("but.adapt", label = "Perform Dose Adaptation", icon = icon("calculator"), width = NULL),br(),br(),
-                                selectInput("adapt.for", "Adapt for:", selected=1, list("Cmin in therapeutic range"=1)),
-                                selectInput("adapt.what", "Adapt ...", selected=1, list("Dose"=1, 
-                                                                                        "Interdose Interval"=2,
-                                                                                        "Infusion Duration"=3,
-                                                                                        "All of those"=4))
+                                selectInput("adapt.for", "Adapt for:", selected=1, GLOB_ADAPT_FOR),
+                                selectInput("adapt.what", "Adapt ...", selected=1, GLOB_ADAPT_WHAT)
                               ),
                               mainPanel(
                                 plotOutput("pkPlot", height = 800)
@@ -60,9 +57,10 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                               sidebarPanel(
                                 actionButton("but.report", label = "Continue", icon = icon("file-alt"), width = NULL),br(),br(),
                                 numericInput(inputId="adapt.dose", label="New Dose [mg]", value =1000),
-                                numericInput(inputId="adapt.ii", label="New Interdose Interval [min]", value = 12),
-                                numericInput(inputId="adapt.dur", label="New Duration of Infusion [h]", value = 30),
+                                numericInput(inputId="adapt.ii", label="New Interdose Interval [h]", value = 12),
+                                numericInput(inputId="adapt.dur", label="New Duration of Infusion [min]", value = 30),
                                 numericInput(inputId="adapt.n", label="Number of Dosing Events to simulate", value = 5),
+                                actionButton("but.reset", label = "Reset to last known dose", icon = icon("undo"), width = NULL),
                                 actionButton("but.refresh", label = "Refresh Simulation", icon = icon("refresh"), width = NULL)
                               ),
                               mainPanel(
@@ -71,15 +69,20 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                             )  
                    ),
                    tabPanel("Clinical Report",htmlOutput("info.report"),hr(),
-                            selectInput("choose_recommendation", "Recommendation:", selected=1, list("Continue on this dose"=1, 
-                                                                                      "Increase the dose"=2, 
-                                                                                      "Decrease the dose"=3,
-                                                                                      "Increase the dosing interval"=4,
-                                                                                      "Decrease the dosing interval"=5)),
-                            textAreaInput("report_comment", "Additional comment: "),
-                            checkboxInput("additional_tdm", "Recommend additional TDM?", value = F),
-                            checkboxInput("add_dur_info", "Add note about Infusion duration?", value = F),
-                            downloadButton("but.download", "Download Report")
+                            
+                            
+                            sidebarLayout(
+                              sidebarPanel(
+                                selectInput("choose_recommendation", "Recommendation:", selected=1, GLOB_RECOMMENDATIONS),
+                                
+                                checkboxInput("additional_tdm", "Recommend additional TDM?", value = F),
+                                checkboxInput("add_dur_info", "Add note about Infusion duration?", value = F),
+                                downloadButton("but.download", "Download Report")
+                              ),
+                              mainPanel(
+                                textAreaInput("report_comment", "Additional comment: ")
+                              )
+                            )  
                    ),
                    tabPanel("MCMC plots", htmlOutput("info.mcmc"),hr(),
                             selectInput("select_chain", "MCMC Chain:", choices = c(1,2,3,4)),br(),
@@ -105,9 +108,9 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                    tabPanel("Model File", htmlOutput("info.model"),hr(),
                             verbatimTextOutput("modelfile")),
                     tabPanel("Settings", htmlOutput("info.settings"),hr(),
-                             numericInput(inputId="mcmc.iter", label="Iterations MCMC", value =100),
-                             numericInput(inputId="mc.iter", label="Iterations MC", value =100),
-                             numericInput(inputId="mcmc.burn", label="Burn-in Iterations MCMC", value =20),
+                             numericInput(inputId="mcmc.iter", label="Iterations MCMC", value =1000),
+                             numericInput(inputId="mc.iter", label="Iterations MC", value =1000),
+                             numericInput(inputId="mcmc.burn", label="Burn-in Iterations MCMC", value =200),
                              numericInput(inputId="delta.t", label="Delta time [h]", value =0.5),
                              numericInput(inputId="simulate.t", label="Simulate time [h]", value =0),
                              numericInput(inputId="low.target", label="Target Throughconcentration [mg/L]", value =10),
@@ -125,6 +128,10 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                                            h4("Resources"),
                                                            a(href="http://go.uniwue.de/osc-group", "Official Homepage of OSC-Group"),br(),
                                                            a(href="https://doi.org/10.1097/FTD.0000000000000490", "Goti et al. Ther Drug Monit (2018) 40:212–221"),br(),
+                                                           a(href="http://www.osc-lab.de/example_dat.xlsx", "Get Example Excel File with multiple dosing with TDM samples"),br(),
+                                                           a(href="http://www.osc-lab.de/example_dat_2.xlsx", "Get Example Excel File with multiple dosing WITHOUT TDM samples"),br(),
+                                                           a(href="http://www.osc-lab.de/example_dat_3.xlsx", "Get Example Excel File with single dosing with TDM samples"),br(),
+                                                           a(href="http://www.osc-lab.de/example_dat_4.xlsx", "Get Example Excel File with single dosing WITHOUT TDM samples"),br(),
                                                            hr(),
                                                            h4("Version history"),
                                                            verbatimTextOutput("vers"))

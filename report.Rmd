@@ -27,7 +27,7 @@ date: "`r format(Sys.time(), '%d.%B %Y')`"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# **1. Patient characteristics**
+# **Patient characteristics**
 
   
 Patient ID: **`r input$pat_ID`** 
@@ -36,7 +36,7 @@ Body weight: **`r input$WT`** kg
 
 Creatinine Clearance: **`r input$CRCL`** mL/min
 
-Receives Dialysis: **`r input$has_dialysis`**
+Receives Dialysis: **`r if(input$has_dialysis) {"Yes"}else{"No"}`**
 
   
     
@@ -46,7 +46,7 @@ Receives Dialysis: **`r input$has_dialysis`**
 ```
 
 
-# **2. Pathogen Information**
+# **Pathogen Information**
 
 Pathogen:  **`r names(GLOB_PATHOGENS[as.numeric(input$choose_pathogen)])`**
 
@@ -58,8 +58,7 @@ MIC: **`r input$MIC`** mg/L
 
 # **Clinical Recommendation**
 
-**`r input$choose_recommendation` **
-  
+**`r names(GLOB_RECOMMENDATIONS[as.numeric(input$choose_recommendation)])`**  
  
 `r input$report_comment`
 
@@ -71,15 +70,28 @@ MIC: **`r input$MIC`** mg/L
 "Infusion Duration should not fall below 30 min. CAVE: Red-Man-Syndrome!"
 } ` 
 
-``` {r recomm, echo=FALSE}
+## **Recommended Dosing strategy**
 
+Dose: **`r input$adapt.dose`** mg
 
+Interdose Interval: **`r input$adapt.ii`** h
+
+Infusion duration: **`r input$adapt.dur`** min
+
+\pagebreak
+
+## **Forecast for the next `r input$adapt.n` doses:**
+
+``` {r recomm, echo=FALSE, warning=FALSE}
+
+plot(app_data$adapted_pk_plot)
 
 ```
 
-# **Used Dataset**
+\pagebreak
 
-Measured Plasmaconcentrations (Last 10 concentrations)
+# **Dataset used**
+
 
 ``` {r tdm, echo=FALSE}
 
@@ -88,31 +100,60 @@ kable(app_data$user_data_set, format = "latex")  %>%
 
 ```
 
-# **Simulated Plasmaconcentration**
 
-  
+\pagebreak
 
-```{r simulation, echo=FALSE}
+# **Simulated Plasmaconcentration from Dataset**
 
+
+```{r simulation, echo=FALSE, warning=FALSE}
+if(app_data$tdm_samples_available){
+grid.arrange(app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=1, ncol=2,widths=c(4,1))
+} else {
+  grid.arrange(app_data$pk_plots[[2]], app_data$pk_plots[[4]], nrow=1, ncol=2,widths=c(4,1))
+}
 
 ```
 
-# **2. Dose Adaptation**
+\pagebreak
 
-
-```{r mcmc_res, echo=FALSE}
-    plot(app_data$adapted_pk_plot)
-```
-
-
-# **MCMC Diagnostic Plots**
+# **MCMC Diagnostic Plots (1/2)**
 
 ```{r mcmc_diag, echo=FALSE}
-
+if(app_data$tdm_samples_available){
 gridExtra::grid.arrange(app_data$mcmc_result[[4]]$p_iter_ETA1, app_data$mcmc_result[[4]]$p_dens_ETA1,    
                               app_data$mcmc_result[[4]]$p_iter_ETA2, app_data$mcmc_result[[4]]$p_dens_ETA2, 
                               app_data$mcmc_result[[4]]$p_iter_ETA3, app_data$mcmc_result[[4]]$p_dens_ETA3, nrow=3, ncol=2, widths=c(3,1))  
+}
 
+```
+
+\pagebreak
+
+# **MCMC Diagnostic Plots (2/2)**
+
+```{r mcmc_diag_2, echo=FALSE}
+if(app_data$tdm_samples_available){
 chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
+}
 
+```
+
+\pagebreak
+
+# **MC Diagnostic Plots**
+
+
+```{r mc_diag, echo=FALSE}
+    chart.Correlation(app_data$mc_result[[3]], histogram=TRUE)
+```
+
+
+\pagebreak
+
+# **Simulted Parameter distributions**
+
+
+```{r par_dist, echo=FALSE}
+    grid.arrange(app_data$dist_plots[[1]],app_data$dist_plots[[2]],app_data$dist_plots[[3]], nrow=3, ncol=1)
 ```

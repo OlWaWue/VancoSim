@@ -12,8 +12,18 @@ library('scales')
 library('kableExtra')
 
 GLOB_PATHOGENS <- c("MRSA"=1, 
-     "Unidentified"=2, 
-     "Mixed infection"=3)
+                    "Unidentified"=2, 
+                    "Mixed infection"=3)
+
+GLOB_RECOMMENDATIONS <- c("Continue on this dose"=1, 
+                          "Adapt Dosing Strategy"=2)
+
+GLOB_ADAPT_FOR <- c("Cmin in therapeutic range"=1)
+
+GLOB_ADAPT_WHAT <- c("Dose"=1, 
+                     "Interdose Interval"=2,
+                     "Infusion Duration"=3,
+                     "All of those"=4)
 
 #Set Color scheme
 main_plot_col <- "#E95420"
@@ -234,10 +244,10 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
     
     ## Build raw individual PK plot
     p <- ggplot(pk_data) + 
-      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=time_reference) ), fill="red", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="red", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="red", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="red", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=time_reference) ), fill="blue", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="blue", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="blue", alpha=0.15) + 
+      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="blue", alpha=0.15) + 
       geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=time_reference)))+
       geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=time_reference), y=conc))
     
@@ -405,7 +415,7 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to, 
     mc_eta3<- (rnorm(n = n.mc, mean=0, sd=sqrt(omegas[3])))
     mc_eta1<- (rnorm(n = n.mc, mean=0, sd=sqrt(omegas[1])))
     
-    all_etas <- data.frame(ETA1=mc_eta1, ETA2=mc_eta2, ETA3=mc_eta3)
+    all_etas <- data.frame(eta1=mc_eta1, eta2=mc_eta2, eta3=mc_eta3)
   
   
   dat_mc <- NULL
@@ -428,7 +438,7 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to, 
       ### Selected
       temp_dat <- pk_2cmt_infusion(theta = thetas,
                                    params = app_data$params,
-                                   eta = c(all_etas$ETA1[i], all_etas$ETA2[i], all_etas$ETA3[i]),
+                                   eta = c(all_etas$eta1[i], all_etas$eta2[i], all_etas$eta3[i]),
                                    dosing_events = dosing_events,
                                    times=seq(t_from,t_to, by))
       
