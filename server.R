@@ -202,7 +202,7 @@ shinyServer(function(input, output, session) {
                                  ),
                                  guide = guide_legend(override.aes = list(
                                    alpha=c(0.2,0.175,0.15,0.1,0.1),
-                                    linetype =  c(NULL,NULL,NULL,NULL,NULL),
+                                    linetype =  c(0,0,0,0,0),
                                     shape = c(NA, NA,NA,NA,NA)),
                                     title=""),
                                     labels=c("80 % Interval", 
@@ -567,7 +567,7 @@ shinyServer(function(input, output, session) {
           ),
           guide = guide_legend(override.aes = list(
             alpha=c(0.2,0.175,0.15,0.1,0.1),
-            linetype =  c(NULL,NULL,NULL,NULL,NULL),
+            linetype =  c(0,0,0,0,0),
             shape = c(NA, NA,NA,NA,NA)),
             title=""),
           labels=c("80 % Interval", 
@@ -591,7 +591,7 @@ shinyServer(function(input, output, session) {
         ),
         guide = guide_legend(override.aes = list(
           alpha=c(0.2,0.175,0.15,0.1,0.1),
-          linetype =  c(NULL,NULL,NULL,NULL,NULL),
+          linetype =  c(0,0,0,0,0),
           shape = c(NA, NA,NA,NA,NA)),
           title=""),
         labels=c("80 % Interval", 
