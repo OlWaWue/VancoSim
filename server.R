@@ -1034,10 +1034,10 @@ shinyServer(function(input, output, session) {
   output$but.download = downloadHandler(
     
     ## Filename includes patiend ID
-    filename = paste("report_", input$ID, ".pdf", sep=""),
+    filename = paste("report_", input$pat_ID, ".pdf", sep=""),
     content = function(file) {
       withProgress(message = "Compiling report ...", style="notification", value =0 ,{
-        library(rmarkdown)
+        
         
         incProgress(0.33)
         out <- render('report.Rmd', output_format=pdf_document(latex_engine = "xelatex"))

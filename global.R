@@ -10,6 +10,7 @@ library('lubridate')
 library('DT')
 library('scales')
 library('kableExtra')
+library('rmarkdown')
 
 GLOB_PATHOGENS <- c("MRSA"=1, 
                     "Unidentified"=2, 
