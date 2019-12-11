@@ -142,6 +142,13 @@ shinyServer(function(input, output, session) {
     
     temp_time <- seq(min(times), max(times)+input$simulate.t, by=input$delta.t)
     
+    plot_dat <- app_data$mc_result [[1]] ## get Plot data ...
+    dat_mc <- app_data$mc_result [[2]]  ### .. and raw results from the mc simulation to complete the plots
+    
+    ## Get lowest value (non-zero <- log-scale) and max value in PK plot to adjust y-axis
+    pop_y_max <- max(plot_dat$CP_max)
+    pop_y_min <- min(plot_dat$CP_min[plot_dat$CP_min >0])
+    
     if(app_data$tdm_samples_available) {
     
     app_data$mcmc_result = process_data_set(app_data$data_set, n.iter = input$mcmc.iter, n.burn = input$mcmc.burn,
@@ -155,37 +162,65 @@ shinyServer(function(input, output, session) {
     
     ind_y_max <- ifelse(max(tdm_data$conc) > ind_y_max, max(tdm_data$conc), ind_y_max)
     
+    
     ## prepare individual boxplot
     ind_boxplot <- ggplot(data=data.frame(conc=app_data$mcmc_result[[6]], time="")) + geom_boxplot(aes(x=time, y=conc)) + plot_theme  +
       theme(axis.text.y = element_blank(), axis.title.y = element_blank(), 
             axis.ticks.y = element_blank())+ 
-      ggtitle("C last [mg/L]", "Individual") + xlab("\n") + ylim(c(0,ind_y_max*1.1))
+      ggtitle("C last [mg/L]", "Individual") + xlab("\n") + ylim(c(0,ind_y_max*1.1)) 
     
     ## prepare individual PK plot
     
-    
-    
-    ind_plot <- app_data$mcmc_result[[5]] + plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") +
+    ## Build raw individual PK plot
+    ind_plot <- ggplot(app_data$mcmc_result[[5]])  +
+      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(temp_time*3600, origin=app_data$time_reference), fill="target"), alpha=0.3) + 
+      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference),fill="s1"), alpha=0.15, show.legend = T) + 
+      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference),fill="s2"),  alpha=0.15) + 
+      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference),fill="s3"), alpha=0.15) + 
+      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference),fill="s4"),  alpha=0.15) + 
+      geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), colour="ind"), show.legend = T)  + 
+      geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), y=conc, colour="tdm"), size=3, shape=1, stroke=2) + plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") +
       ggtitle("Individual Prediction Using TDM Data and Covariates", "80/85/90/95% PI") + 
-      # geom_line(data=plot_dat, aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), y=CP), colour="blue", linetype=2) +  ## Uncomment this line for additional popPrediction
+      geom_line(data=plot_dat, aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), y=CP, colour="pop"), linetype=2) +  ## Uncomment this line for additional popPrediction
       ylim(c(0,ind_y_max*1.1)) +
-      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1) +
-      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(temp_time*3600, origin=app_data$time_reference)),fill="darkgreen", alpha=0.3) + 
-      scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"))
+      geom_hline(aes(yintercept=input$MIC, colour="mic"), linetype=3, size=1) +
+      scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) + 
+      scale_colour_manual(values=c("ind"="blue",
+                                    "tdm"="firebrick",
+                                   "pop"="black",
+                                   "mic"="black"),
+                                    guide = guide_legend(override.aes = list(
+                                      linetype =  c(1,2,3,0),
+                                      shape = c(NA, NA,NA,1),
+                                      fill = c("white", "white","white", "white")
+                                      ),
+                                      title=""),
+                                    labels=c("Individual Prediction", 
+                                             "Population Prediction", "MIC","TDM Data")
+                          ) + 
+      scale_fill_manual(values=c("s1"="blue","s2"="blue","s3"="blue","s4"="blue","target"="darkgreen"
+                                 ),
+                                 guide = guide_legend(override.aes = list(
+                                   alpha=c(0.2,0.175,0.15,0.1,0.1),
+                                    linetype =  c(NULL,NULL,NULL,NULL,NULL),
+                                    shape = c(NA, NA,NA,NA,NA)),
+                                    title=""),
+                                    labels=c("80 % Interval", 
+                                             "85 % Interval",
+                                             "90 % Interval",
+                                             "95 % Interval","Target for Cmin"
+                                             )) + 
+      theme(legend.position = "left")
+    
     
     ind_pars <- (app_data$mcmc_result[[10]])
     
     }
     
     
-    plot_dat <- app_data$mc_result [[1]] ## get Plot data ...
-    dat_mc <- app_data$mc_result [[2]]  ### .. and raw results from the mc simulation to complete the plots
     
-    ## Get lowest value (non-zero <- log-scale) and max value in PK plot to adjust y-axis
-    pop_y_max <- max(plot_dat$CP_max)
-    pop_y_min <- min(plot_dat$CP_min[plot_dat$CP_min >0])
-
-
+    
+    
     ## Check if TDM concentration is above upper prediction interval to readjust the plot limits on y-axis
     pop_y_max <- ifelse(max(tdm_data$conc) > pop_y_max, max(tdm_data$conc), pop_y_max)
    
@@ -196,12 +231,31 @@ shinyServer(function(input, output, session) {
       xlab("\n") + ylim(c(0,pop_y_max*1.1)) 
     
     ## Prepare population PK plot
-    pop_plot <- ggplot(data=plot_dat)  + geom_line(aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), y=CP), colour="blue") +
-      geom_ribbon(aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), ymax=CP_max, ymin=CP_min), alpha=0.15, fill="blue") +
+    pop_plot <- ggplot(data=plot_dat)  + geom_line(aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), y=CP, colour="pop")) +
+      geom_ribbon(aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), ymax=CP_max, ymin=CP_min, fill="s1"), alpha=0.15) +
       plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Population Prediction Using Patient Covariates", "95% PI") +
       ylim(c(0,pop_y_max*1.1)) +
-      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1) +
-      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(temp_time*3600, origin=app_data$time_reference)),fill="darkgreen", alpha=0.3) +  scale_x_datetime( labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) 
+      geom_hline(aes(yintercept=input$MIC, colour="mic"), linetype=3, size=1) +
+      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(temp_time*3600, origin=app_data$time_reference),fill="target"), alpha=0.3) +  scale_x_datetime( labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) + 
+      scale_colour_manual(values=c("mic"="black", "pop"="blue"),
+                          guide = guide_legend(override.aes = list(
+                            linetype =  c(3,1),
+                            shape = c(NA,NA),
+                            fill = c("white","white")
+                          ),
+                          title=""),
+                          labels=c("MIC", "Population Prediction")
+      ) + 
+      scale_fill_manual(values=c("s1"="blue", "target"="darkgreen"
+      ),
+      guide = guide_legend(override.aes = list(
+        alpha=c(0.1,0.1),
+        linetype =  c(NULL,NULL),
+        shape = c(NA,NA)),
+        title=""),
+        labels=c("95 % Interval","Target for Cmin")
+      ) + 
+      theme(legend.position = "left")
       
     
     
@@ -264,7 +318,7 @@ shinyServer(function(input, output, session) {
     
     if(is.null(app_data$pk_plots)){
       return()
-    }
+    } 
     
     if(app_data$tdm_samples_available) {
         grid.arrange(app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=1, ncol=2,widths=c(4,1))
@@ -489,15 +543,65 @@ shinyServer(function(input, output, session) {
     
     ## Build raw individual PK plot
     p <- ggplot(pk_data) + 
-      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference) ), fill="red", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference)), fill="red", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference)), fill="red", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference)), fill="red", alpha=0.15) + 
-      geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference)))+
-      geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), y=conc)) +
+      geom_hline(aes(yintercept=input$MIC, colour="mic"), linetype=3, size=1) +
+      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), fill="s1" ), alpha=0.15) + 
+      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), fill="s2" ), alpha=0.15) + 
+      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), fill="s3" ), alpha=0.15) + 
+      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), fill="s4" ), alpha=0.15) + 
+      geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), colour="pred"))+
       plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Prediction of new Dosing Scheme beginning at last event (Dose or TDM)", "80/85/90/95% PI") + 
-      geom_hline(aes(yintercept=input$MIC), linetype=3, colour="black", size=1) +
-      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference)),fill="darkgreen", alpha=0.3) +  scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"), limits = c(x_min,x_max))
+      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference),fill="target"), alpha=0.3) +  scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"), limits = c(x_min,x_max)) 
+    
+    if (app_data$tdm_samples_available){
+         p <- p+ scale_colour_manual(values=c("mic"="black",
+                                       "pred"="red"),
+                              guide = guide_legend(override.aes = list(
+                                linetype =  c(3,1),
+                                shape = c(NA,NA),
+                                fill = c("white","white")
+                              ),
+                              title=""),
+                              labels=c("MIC","Individual Prediction")
+          ) + 
+          scale_fill_manual(values=c("s1"="red","s2"="red","s3"="red","s4"="red","target"="darkgreen"
+          ),
+          guide = guide_legend(override.aes = list(
+            alpha=c(0.2,0.175,0.15,0.1,0.1),
+            linetype =  c(NULL,NULL,NULL,NULL,NULL),
+            shape = c(NA, NA,NA,NA,NA)),
+            title=""),
+          labels=c("80 % Interval", 
+                   "85 % Interval",
+                   "90 % Interval",
+                   "95 % Interval","Target for Cmin"
+          )) + 
+          theme(legend.position = "left")
+    } else {
+      p <- p+ scale_colour_manual(values=c("mic"="black",
+                                           "pred"="red"),
+                                  guide = guide_legend(override.aes = list(
+                                    linetype =  c(3,1),
+                                    shape = c(NA,NA),
+                                    fill = c("white","white")
+                                  ),
+                                  title=""),
+                                  labels=c("MIC","Population Prediction")
+      ) + 
+        scale_fill_manual(values=c("s1"="red","s2"="red","s3"="red","s4"="red","target"="darkgreen"
+        ),
+        guide = guide_legend(override.aes = list(
+          alpha=c(0.2,0.175,0.15,0.1,0.1),
+          linetype =  c(NULL,NULL,NULL,NULL,NULL),
+          shape = c(NA, NA,NA,NA,NA)),
+          title=""),
+        labels=c("80 % Interval", 
+                 "85 % Interval",
+                 "90 % Interval",
+                 "95 % Interval","Target for Cmin"
+        )) + 
+        theme(legend.position = "left")
+    }
+      
     
     
     app_data$adapted_pk_plot <- p

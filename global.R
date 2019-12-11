@@ -242,14 +242,6 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                           max=s[9,]) # median 
     
     
-    ## Build raw individual PK plot
-    p <- ggplot(pk_data) + 
-      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=time_reference) ), fill="blue", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="blue", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="blue", alpha=0.15) + 
-      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=time_reference)), fill="blue", alpha=0.15) + 
-      geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=time_reference)))+
-      geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=time_reference), y=conc), size=3, shape=1, colour="firebrick", stroke=2)
     
     ## Get the last simulated concentration for the boxplot
     c_at_tlast <- df_temp[,ncol(df_temp)]
@@ -259,7 +251,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
     
     ind_y_min <- min(pk_data$s1[pk_data$s1>0])
     
-    return(list(p,             #1
+    return(list(pk_data,             #1
                 c_at_tlast,    #2
                 ind_y_max,     #3
                 ind_y_min,     #4
@@ -357,7 +349,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   
   ### Use JAGS model to sample from posterior distribution
   ### According to the selected model
-  print(SIGMAS)
+
   #### ---- For some reason, JAGS runs more stable when SD is submitted to the model and is ----#
   #### Calculated back to variance in the model file --- ?? 
   jags <- jags.model('Goti_et_al.bug',
@@ -411,9 +403,9 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
 perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to, by=0.2) {
   
 
-    mc_eta2 <- (rnorm(n = n.mc, mean=0, sd=sqrt(omegas[2])))
-    mc_eta3<- (rnorm(n = n.mc, mean=0, sd=sqrt(omegas[3])))
-    mc_eta1<- (rnorm(n = n.mc, mean=0, sd=sqrt(omegas[1])))
+    mc_eta2 <- (rnorm(n = n.mc, mean=0, sd=(omegas[2])))
+    mc_eta3<- (rnorm(n = n.mc, mean=0, sd=(omegas[3])))
+    mc_eta1<- (rnorm(n = n.mc, mean=0, sd=(omegas[1])))
     
     all_etas <- data.frame(eta1=mc_eta1, eta2=mc_eta2, eta3=mc_eta3)
   
