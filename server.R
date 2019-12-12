@@ -275,27 +275,98 @@ shinyServer(function(input, output, session) {
     if(app_data$tdm_samples_available) {
     
         dist_plots[[1]] <- ggplot() +theme_bw()+ 
-          geom_density(data=pop_pars, aes(x=CL, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1) +
-          geom_density(data=ind_pars, aes(x=CL, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1) +
-          xlab("Clearance (Cl) [L/h]") + ylab("Frequency")
+          geom_density(data=pop_pars, aes(x=CL, y=..density.., fill="pop"), colour="blue", size=.5,alpha=0.25, linetype=1) +
+          geom_density(data=ind_pars, aes(x=CL, y=..density.., fill="ind"), colour="red", size=.5,alpha=0.25, linetype=1) +
+          xlab("Clearance (Cl) [L/h]") + ylab("Frequency") +
+          scale_fill_manual(values=c("ind"="red", "pop"="blue"
+          ),
+          guide = guide_legend(override.aes = list(
+            linetype =  c(NULL,NULL),
+            colour = c("red", "blue"),
+            alpha = c(0.25, 0.25),
+            shape = c(NA,NA)),
+            title=""),
+          labels=c("Individual","Population")
+          ) + 
+          theme(legend.position = "bottom")
+        
         dist_plots[[2]] <- ggplot(  ) +theme_bw()+ 
-          geom_density(data=pop_pars, aes(x=V1, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1) +
-          geom_density(data=ind_pars,aes(x=V1, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1)+
-          xlab("Volume of central compartment (Vc) [L]") + ylab("Frequency")
+          geom_density(data=pop_pars, aes(x=V1, y=..density.., fill="pop"), colour="blue", size=.5,alpha=0.25, linetype=1) +
+          geom_density(data=ind_pars,aes(x=V1, y=..density.., fill="ind"), colour="red", size=.5,alpha=0.25, linetype=1)+
+          xlab("Volume of central compartment (Vc) [L]") + ylab("Frequency")+
+          scale_fill_manual(values=c("ind"="red", "pop"="blue"
+          ),
+          guide = guide_legend(override.aes = list(
+            linetype =  c(NULL,NULL),
+            colour = c("red", "blue"),
+            alpha = c(0.25, 0.25),
+            shape = c(NA,NA)),
+            title=""),
+          labels=c("Individual","Population")
+          ) + 
+          theme(legend.position = "bottom")
+        
         dist_plots[[3]] <- ggplot( ) +theme_bw()+ 
-          geom_density(data=pop_pars, aes(x=V2, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1)+
-          geom_density(data=ind_pars,aes(x=V2, y=..density..), colour="red", size=.5, fill="red",alpha=0.25, linetype=1)+
-          xlab("Volume of peripheral compartment (Vp) [L]") + ylab("Frequency")
+          geom_density(data=pop_pars, aes(x=V2, y=..density.., fill="pop"), colour="blue", size=.5,alpha=0.25, linetype=1)+
+          geom_density(data=ind_pars,aes(x=V2, y=..density.., fill="ind"), colour="red", size=.5,alpha=0.25, linetype=1)+
+          xlab("Volume of peripheral compartment (Vp) [L]") + ylab("Frequency")+
+          scale_fill_manual(values=c("ind"="red", "pop"="blue"
+          ),
+          guide = guide_legend(override.aes = list(
+            linetype =  c(NULL,NULL),
+            colour = c("red", "blue"),
+            alpha = c(0.25, 0.25),
+            shape = c(NA,NA)),
+            title=""),
+          labels=c("Individual","Population")
+          ) + 
+          theme(legend.position = "bottom")
+        
     } else {
       dist_plots[[1]] <- ggplot() +theme_bw()+ 
-        geom_density(data=pop_pars, aes(x=CL, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1) +
-        xlab("Clearance (Cl) [L/h]") + ylab("Frequency")
+        geom_density(data=pop_pars, aes(x=CL, y=..density.., fill="pop"), colour="blue", size=.5,alpha=0.25, linetype=1) +
+        xlab("Clearance (Cl) [L/h]") + ylab("Frequency")+
+        scale_fill_manual(values=c("pop"="blue"
+        ),
+        guide = guide_legend(override.aes = list(
+          linetype =  c(NULL),
+          colour = c("blue"),
+          alpha = c(0.25),
+          shape = c(NA)),
+          title=""),
+        labels=c("Population")
+        ) + 
+        theme(legend.position = "bottom")
+      
       dist_plots[[2]] <- ggplot(  ) +theme_bw()+ 
-        geom_density(data=pop_pars, aes(x=V1, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1) +
-        xlab("Volume of central compartment (Vc) [L]") + ylab("Frequency")
+        geom_density(data=pop_pars, aes(x=V1, y=..density.., fill="pop"), colour="blue", size=.5,alpha=0.25, linetype=1) +
+        xlab("Volume of central compartment (Vc) [L]") + ylab("Frequency")+
+        scale_fill_manual(values=c("pop"="blue"
+        ),
+        guide = guide_legend(override.aes = list(
+          linetype =  c(NULL),
+          colour = c("blue"),
+          alpha = c(0.25),
+          shape = c(NA)),
+          title=""),
+        labels=c("Population")
+        ) + 
+        theme(legend.position = "bottom")
+      
       dist_plots[[3]] <- ggplot( ) +theme_bw()+ 
-        geom_density(data=pop_pars, aes(x=V2, y=..density..), colour="blue", size=.5, fill="blue",alpha=0.25, linetype=1)+
-        xlab("Volume of peripheral compartment (Vp) [L]") + ylab("Frequency")
+        geom_density(data=pop_pars, aes(x=V2, y=..density.., fill="pop"), colour="blue", size=.5,alpha=0.25, linetype=1)+
+        xlab("Volume of peripheral compartment (Vp) [L]") + ylab("Frequency")+
+        scale_fill_manual(values=c("pop"="blue"
+        ),
+        guide = guide_legend(override.aes = list(
+          linetype =  c(NULL),
+          colour = c("blue"),
+          alpha = c(0.25),
+          shape = c(NA)),
+          title=""),
+        labels=c("Population")
+        ) + 
+        theme(legend.position = "bottom")
     }
     
     app_data$dist_plots <- dist_plots
@@ -362,8 +433,7 @@ shinyServer(function(input, output, session) {
       app_data$time_reference <- temp$time_reference
 
 
-      print(app_data$time_reference)
-     # as_datetime()
+      
       
       if(nrow(temp$conv_data[temp$conv_data$evid==0,])>=1){
         app_data$tdm_samples_available <- TRUE
