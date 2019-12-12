@@ -115,7 +115,7 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                              numericInput(inputId="mcmc.burn", label="Burn-in Iterations MCMC", value =200),
                              numericInput(inputId="delta.t", label="Delta time [h]", value =0.25),
                              numericInput(inputId="simulate.t", label="Simulate time [h]", value =0),
-                             numericInput(inputId="low.target", label="Target Throughconcentration [mg/L]", value =10),
+                             numericInput(inputId="low.target", label="Target Throughconcentration [mg/L]", value =15),
                              numericInput(inputId="high.target", label="Limit Cmax [mg/L]", value =20)
                              ),
                    tabPanel("About", htmlOutput("info.about"),hr(),

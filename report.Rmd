@@ -67,7 +67,7 @@ MIC: **`r input$MIC`** mg/L
 } ` 
 
 `r if(input$add_dur_info){
-"Infusion Duration should not fall below 30 min. CAVE: Red-Man-Syndrome!"
+"Infusion Duration should not fall below 60 min. CAVE: Red-Man-Syndrome!"
 } ` 
 
 ## **Recommended Dosing strategy**
