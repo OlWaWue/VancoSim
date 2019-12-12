@@ -5,6 +5,9 @@ header-includes:
     - \fancyfoot[LE,RO]{\thepage}
     - \usepackage{fontspec}
     - \setmainfont{OpenSans}
+    - \usepackage{lscape}
+    - \newcommand{\blandscape}{\begin{landscape}}
+    - \newcommand{\elandscape}{\end{landscape}}
     
 title: "TDM Report - Vancomycin"
 output: 
@@ -78,17 +81,21 @@ Interdose Interval: **`r input$adapt.ii`** h
 
 Infusion duration: **`r input$adapt.dur`** min
 
-\pagebreak
+\newpage
+
+\blandscape
 
 ## **Forecast for the next `r input$adapt.n` doses:**
 
-``` {r recomm, echo=FALSE, warning=FALSE}
+``` {r recomm, echo=FALSE, warning=FALSE, fig.height = 7, fig.width = 12, fig.align = "center"}
 
 plot(app_data$adapted_pk_plot)
 
 ```
 
-\pagebreak
+\elandscape
+
+\newpage
 
 # **Dataset used**
 
@@ -101,12 +108,13 @@ kable(app_data$user_data_set, format = "latex")  %>%
 ```
 
 
-\pagebreak
+\newpage
+\blandscape
 
 # **Simulated Plasmaconcentration from Dataset**
 
 
-```{r simulation, echo=FALSE, warning=FALSE}
+```{r simulation, echo=FALSE, warning=FALSE, fig.height = 7, fig.width = 12, fig.align = "center"}
 if(app_data$tdm_samples_available){
 grid.arrange(app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=1, ncol=2,widths=c(4,1))
 } else {
@@ -115,7 +123,9 @@ grid.arrange(app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=1, ncol=2,widt
 
 ```
 
-\pagebreak
+\elandscape
+
+\newpage
 
 # **MCMC Diagnostic Plots (1/2) - Results of Gibbs-Sampling and prior vs posterior distribution**
 
@@ -128,7 +138,7 @@ gridExtra::grid.arrange(app_data$mcmc_result[[4]]$p_iter_ETA1, app_data$mcmc_res
 
 ```
 
-\pagebreak
+\newpage
 
 # **MCMC Diagnostic Plots (2/2) - distribution and correlation of random effects**
 
@@ -139,7 +149,7 @@ chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
 
 ```
 
-\pagebreak
+\newpage
 
 # **MC Diagnostic Plots - distribution and correlation of random effects**
 
@@ -149,7 +159,7 @@ chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
 ```
 
 
-\pagebreak
+\newpage
 
 # **Simulated PK Parameter distributions**
 
