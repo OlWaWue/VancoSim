@@ -16,7 +16,8 @@ shinyServer(function(input, output, session) {
       
       app_data$data_set <- temp$conv_data
       app_data$user_data_set <- temp$original_data
-      app_data$time_reference <- as.Date.POSIXct(temp$time_reference)
+      app_data$time_reference <- temp$time_reference
+      
       
       ii = 12
       doses = temp$conv_data[temp$conv_data$evid==1,]
@@ -100,9 +101,14 @@ shinyServer(function(input, output, session) {
                             EVID = data$EVID,
                             DUR = data$DUR) 
 
+
+    
+    t_ref <- hour_time[1]
+    
     hour_time <- as.numeric(hour_time)
     
-    t_ref <- min(hour_time)
+
+    
     
     hour_time <- (hour_time-min(hour_time))/3600
 
@@ -353,8 +359,12 @@ shinyServer(function(input, output, session) {
       
       app_data$data_set <- temp$conv_data
       app_data$user_data_set <- temp$original_data
-      app_data$time_reference <- as.Date.POSIXct(temp$time_reference)
+      app_data$time_reference <- temp$time_reference
 
+
+      print(app_data$time_reference)
+     # as_datetime()
+      
       if(nrow(temp$conv_data[temp$conv_data$evid==0,])>=1){
         app_data$tdm_samples_available <- TRUE
       } else {
