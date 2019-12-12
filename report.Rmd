@@ -4,7 +4,7 @@ header-includes:
     - \fancyfoot[CO,CE]{OSC-Group - http://www.osc-lab.de - JMU Wuerzburg - Pharmazie}
     - \fancyfoot[LE,RO]{\thepage}
     - \usepackage{fontspec}
-    - \setmainfont{FreeSans}
+    - \setmainfont{OpenSans}
     
 title: "TDM Report - Vancomycin"
 output: 
@@ -15,7 +15,7 @@ date: "`r format(Sys.time(), '%d.%B %Y')`"
 
 
 ---
-\setmainfont{FreeSans}
+\setmainfont{OpenSans}
 \addtolength{\headheight}{1.0cm} 
 \pagestyle{fancyplain} 
 \rhead{\includegraphics[height=1.2cm]{./logo_rechts.png}} 
