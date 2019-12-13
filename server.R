@@ -110,6 +110,7 @@ shinyServer(function(input, output, session) {
     
     updateCheckboxInput(session, inputId = "additional_tdm", value=F)
     updateCheckboxInput(session, inputId = "add_dur_info", value=F)
+    updateCheckboxInput(session, inputId = "has_dialysis", value=F)
     
     updateTextAreaInput(session, inputId = "report_comment", value="")
     
@@ -1256,6 +1257,7 @@ shinyServer(function(input, output, session) {
         app_data$user_x_zoom<- as.POSIXct.numeric(app_data$user_x_zoom,origin=as.POSIXct(strptime("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")))
         app_data$user_x_zoom_pop<- as.POSIXct.numeric(app_data$user_x_zoom_pop,origin=as.POSIXct(strptime("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")))
 
+        session$resetBrush("pk_brush")
         
         if(!is.null(app_data$pk_plots[[1]])){
           app_data$pk_plots[[1]] <- app_data$pk_plots[[1]]+ coord_cartesian(ylim=app_data$user_y_zoom, xlim=app_data$user_x_zoom, expand = F)
@@ -1282,6 +1284,8 @@ shinyServer(function(input, output, session) {
 
       
       app_data$adapted_pk_plot <- app_data$adapted_pk_plot + coord_cartesian(ylim=app_data$user_y_zoom_adapt, xlim=app_data$user_x_zoom_adapt, expand = F)
+      
+      session$resetBrush("pk_adapt_brush")
       
     } else {
 
