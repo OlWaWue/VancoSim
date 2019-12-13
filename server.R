@@ -48,6 +48,75 @@ shinyServer(function(input, output, session) {
     
   })
   
+  observeEvent(input$but.resetApp, {
+
+    
+    app_data$mcmc_result = NULL
+    app_data$mc_result= NULL
+    app_data$disc_shown = F
+    app_data$user_data_set = NULL
+    app_data$data_set = NULL
+    app_data$time_reference = NULL
+    app_data$params= c(WT=NA,    
+              CRCL=NA,   
+              DIAL=NA)     
+    
+    
+    app_data$step_one_completed = FALSE
+    app_data$step_two_completed = FALSE 
+    app_data$step_three_completed = FALSE 
+    
+    app_data$pk_plots = NULL
+    app_data$adapted_pk_plot = NULL
+    app_data$dist_plots = NULL
+    app_data$tdm_samples_available =T
+    app_data$last_known_dose = NULL
+    app_data$last_known_dose_orig = NULL
+    app_data$standard_y_zoom = NULL
+    app_data$standard_x_zoom = NULL
+    
+    app_data$user_y_zoom = NULL
+    app_data$user_x_zoom = NULL
+    
+    app_data$standard_y_zoom_pop = NULL
+    app_data$standard_x_zoom_pop = NULL
+    
+    app_data$user_y_zoom_pop = NULL
+    app_data$user_x_zoom_pop = NULL
+    
+    app_data$standard_y_zoom_adapt = NULL
+    app_data$standard_x_zoom_adapt = NULL
+    
+    app_data$user_y_zoom_adapt = NULL
+    app_data$user_x_zoom_adapt = NULL
+    
+  
+    
+    updateTextInput(session, inputId = "pat_ID", value = "PAT0001")
+    updateNumericInput(session, inputId = "WT", value = 70)
+    updateNumericInput(session, inputId = "CRCL", value = 120)
+    updateNumericInput(session, inputId = "MIC", value = 5)
+    
+    updateNumericInput(session, inputId = "adapt.dose", value = 1000)
+    updateNumericInput(session, inputId = "adapt.ii", value = 12)
+    updateNumericInput(session, inputId = "adapt.dur", value = 60)
+    updateNumericInput(session, inputId = "adapt.n", value = 5)
+    
+    updateSelectInput(session, inputId = "adapt.for", selected = 1)
+    updateSelectInput(session, inputId = "adapt.what", selected = 1)
+    updateSelectInput(session, inputId = "choose_pathogen", selected = 1)
+    updateSelectInput(session, inputId = "choose_recommendation", selected = 1)
+    updateSelectInput(session, inputId = "select_chain", selected = 1)
+    
+    updateCheckboxInput(session, inputId = "additional_tdm", value=F)
+    updateCheckboxInput(session, inputId = "add_dur_info", value=F)
+    
+    updateTextAreaInput(session, inputId = "report_comment", value="")
+    
+    updateTabsetPanel(session, inputId = "mainpage", selected = "Enter Patient data")
+    
+  })
+  
   app_data <- reactiveValues(
     
     ## AppData used in simulation
@@ -58,17 +127,41 @@ shinyServer(function(input, output, session) {
     user_data_set = NULL,
     data_set = NULL,
     time_reference = NULL,
-    params= c(WT=70,    ## Body weight in kg
-      CRCL=120,   ## CrCl in mL/min
-      DIAL=0),     ## Dialysis yes or no
+    params= c(WT=NA,    ## Body weight in kg
+              CRCL=NA,   ## CrCl in mL/min
+              DIAL=NA),     ## Dialysis yes or no
     
-    demo_loaded = FALSE, # Flag shows whether demo simulation has been loaded
+    
+    # Flags showing which stages were completed
+    step_one_completed = FALSE, 
+    step_two_completed = FALSE, 
+    step_three_completed = FALSE, 
+    
     pk_plots = NULL,
     adapted_pk_plot = NULL,
     dist_plots = NULL,
     tdm_samples_available =T,
     last_known_dose = NULL,
-    last_known_dose_orig = NULL
+    last_known_dose_orig = NULL,
+    standard_y_zoom = NULL,
+    standard_x_zoom = NULL,
+    
+    user_y_zoom = NULL,
+    user_x_zoom = NULL,
+    
+    standard_y_zoom_pop = NULL,
+    standard_x_zoom_pop = NULL,
+    
+    user_y_zoom_pop = NULL,
+    user_x_zoom_pop = NULL,
+    
+    standard_y_zoom_adapt = NULL,
+    standard_x_zoom_adapt = NULL,
+    
+    user_y_zoom_adapt = NULL,
+    user_x_zoom_adapt = NULL
+    
+    
   )
   
   reset_adapt_to_last_known_dose <- function(){
@@ -133,9 +226,15 @@ shinyServer(function(input, output, session) {
       times <- c(times, times+12)
     }
     
+    x_min <- as.POSIXct.numeric(min(times)*3600,origin=app_data$time_reference)
+    x_max <- as.POSIXct.numeric(max(times)*3600,origin=app_data$time_reference)
+    
     ## get tdm data from the table
     tdm_data <- data.frame(conc=as.numeric(as.character(app_data$data_set[app_data$data_set$evid==0,]$conc)),
                            time=as.numeric(as.character(app_data$data_set[app_data$data_set$evid==0,]$time)))
+    
+    
+    # --- Update parameters from GUI
     
     app_data$params <- c(input$WT, input$CRCL, input$has_dialysis)
     
@@ -143,7 +242,8 @@ shinyServer(function(input, output, session) {
     app_data$mc_result <- perform_mc_simulation(input$mc.iter, ## number of simulations
                                                 OMEGAS, ## omegas
                                                 THETAS, ## thetas
-                                                app_data, ## App Data for Dosing / TDM Data
+                                                app_data$data_set, ## App Data for Dosing / TDM Data
+                                                app_data$params,
                                                 min(times), max(times)+input$simulate.t, input$delta.t) ## Time to simulate
     
     temp_time <- seq(min(times), max(times)+input$simulate.t, by=input$delta.t)
@@ -155,71 +255,93 @@ shinyServer(function(input, output, session) {
     pop_y_max <- max(plot_dat$CP_max)
     pop_y_min <- min(plot_dat$CP_min[plot_dat$CP_min >0])
     
+    tdm_data$time <- as.POSIXct.numeric(tdm_data$time*3600,origin=app_data$time_reference)
+    
+    plot_dat$TIME <- as.POSIXct.numeric(plot_dat$TIME*3600, origin=app_data$time_reference)
+    
     if(app_data$tdm_samples_available) {
     
-    app_data$mcmc_result = process_data_set(app_data$data_set, n.iter = input$mcmc.iter, n.burn = input$mcmc.burn,
-                                            thetas = THETAS,
-                                            omegas = OMEGAS,
-                                            params = app_data$params,
-                                            TIME =seq(min(times), max(times)+input$simulate.t, by=input$delta.t), 
-                                            SIGMAS=3.4, time_reference=app_data$time_reference) 
-    ind_y_max <- app_data$mcmc_result[[7]]
-    ind_y_min <- app_data$mcmc_result[[8]]
-    
-    ind_y_max <- ifelse(max(tdm_data$conc) > ind_y_max, max(tdm_data$conc), ind_y_max)
-    
-    
-    ## prepare individual boxplot
-    ind_boxplot <- ggplot(data=data.frame(conc=app_data$mcmc_result[[6]], time="")) + geom_boxplot(aes(x=time, y=conc)) + plot_theme  +
-      theme(axis.text.y = element_blank(), axis.title.y = element_blank(), 
-            axis.ticks.y = element_blank())+ 
-      ggtitle("C last [mg/L]", "Individual") + xlab("\n") + ylim(c(0,ind_y_max*1.1)) 
-    
-    ## prepare individual PK plot
-    
-    ## Build raw individual PK plot
-    ind_plot <- ggplot(app_data$mcmc_result[[5]])  +
-      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(temp_time*3600, origin=app_data$time_reference), fill="target"), alpha=0.3) + 
-      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference),fill="s1"), alpha=0.15, show.legend = T) + 
-      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference),fill="s2"),  alpha=0.15) + 
-      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference),fill="s3"), alpha=0.15) + 
-      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference),fill="s4"),  alpha=0.15) + 
-      geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), colour="ind"), show.legend = T)  + 
-      geom_point(data=tdm_data, aes(x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), y=conc, colour="tdm"), size=3, shape=1, stroke=2) + plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") +
-      ggtitle("Individual Prediction Using TDM Data and Covariates", "80/85/90/95% PI") + 
-      geom_line(data=plot_dat, aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), y=CP, colour="pop"), linetype=2) +  ## Uncomment this line for additional popPrediction
-      ylim(c(0,ind_y_max*1.1)) +
-      geom_hline(aes(yintercept=input$MIC, colour="mic"), linetype=3, size=1) +
-      scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) + 
-      scale_colour_manual(values=c("ind"="blue",
-                                    "tdm"="firebrick",
-                                   "pop"="black",
-                                   "mic"="black"),
-                                    guide = guide_legend(override.aes = list(
-                                      linetype =  c(1,2,3,0),
-                                      shape = c(NA, NA,NA,1),
-                                      fill = c("white", "white","white", "white")
-                                      ),
-                                      title=""),
-                                    labels=c("Individual Prediction", 
-                                             "Population Prediction", "MIC","TDM Data")
-                          ) + 
-      scale_fill_manual(values=c("s1"="blue","s2"="blue","s3"="blue","s4"="blue","target"="darkgreen"
-                                 ),
-                                 guide = guide_legend(override.aes = list(
-                                   alpha=c(0.2,0.175,0.15,0.1,0.1),
-                                    linetype =  c(0,0,0,0,0),
-                                    shape = c(NA, NA,NA,NA,NA)),
-                                    title=""),
-                                    labels=c("80 % Interval", 
-                                             "85 % Interval",
-                                             "90 % Interval",
-                                             "95 % Interval","Target for Cmin"
-                                             )) + 
-      theme(legend.position = "left")
-    
-    
-    ind_pars <- (app_data$mcmc_result[[10]])
+        app_data$mcmc_result = process_data_set(app_data$data_set, n.iter = input$mcmc.iter, n.burn = input$mcmc.burn,
+                                                thetas = THETAS,
+                                                omegas = OMEGAS,
+                                                params = app_data$params,
+                                                TIME =seq(min(times), max(times)+input$simulate.t, by=input$delta.t), 
+                                                SIGMAS=3.4, time_reference=app_data$time_reference) 
+        ind_y_max <- app_data$mcmc_result[[7]]
+        ind_y_min <- app_data$mcmc_result[[8]]
+        
+        ind_y_max <- ifelse(max(tdm_data$conc) > ind_y_max, max(tdm_data$conc), ind_y_max)
+        
+        
+        
+        app_data$standard_y_zoom <- c(0,ind_y_max*1.1)
+        app_data$standard_x_zoom <- c(x_min, x_max)
+        
+        app_data$user_y_zoom <- c(0,ind_y_max*1.1)
+        app_data$user_x_zoom <- c(x_min, x_max)
+        
+        ## prepare individual boxplot ### Currently not used
+        ind_boxplot <- ggplot(data=data.frame(conc=app_data$mcmc_result[[6]], time="")) + geom_boxplot(aes(x=time, y=conc)) + plot_theme  +
+          theme(axis.text.y = element_blank(), axis.title.y = element_blank(), 
+                axis.ticks.y = element_blank())+ 
+          ggtitle("C last [mg/L]", "Individual") + xlab("\n") + coord_cartesian(ylim=c(0,ind_y_max*1.1), expand = F) 
+        
+        ## prepare individual PK plot
+        
+        
+        
+        ind_plot_data <- app_data$mcmc_result[[5]]
+        
+        ind_plot_data$time <- as.POSIXct.numeric(ind_plot_data$time*3600,origin=app_data$time_reference)
+        
+        ind_plot_data$low_target <- input$low.target
+        
+        ind_plot_data$high_target <-input$high.target
+
+        
+        ## Build raw individual PK plot
+        ind_plot <- ggplot(ind_plot_data)  +
+          geom_ribbon(aes(ymin=low_target, ymax=high_target, x=time, fill="target"), alpha=0.3) + 
+          geom_ribbon(aes(ymin=s1, ymax=s2, x=time,fill="s1"), alpha=0.15, show.legend = T) + 
+          geom_ribbon(aes(ymin=s3, ymax=s4, x=time,fill="s2"),  alpha=0.15) + 
+          geom_ribbon(aes(ymin=s5, ymax=s6, x=time,fill="s3"), alpha=0.15) + 
+          geom_ribbon(aes(ymin=s7, ymax=s8, x=time,fill="s4"),  alpha=0.15) + 
+          geom_line(aes(y=max, x=time, colour="ind"), show.legend = T)  + 
+          geom_point(data=tdm_data, aes(x=time, y=conc, colour="tdm"), size=3, shape=1, stroke=2) + plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") +
+          ggtitle("Individual Prediction Using TDM Data and Covariates", "Select area and double click for zoom and unzoom") + 
+          coord_cartesian(ylim=app_data$standard_y_zoom, xlim=app_data$standard_x_zoom, expand = F) +
+          geom_line(data=plot_dat, aes(x=TIME, y=CP, colour="pop"), linetype=2) +  
+          geom_hline(aes(yintercept=input$MIC, colour="mic"), linetype=3, size=1) +
+          scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) + 
+          scale_colour_manual(values=c("ind"="blue",
+                                        "tdm"="firebrick",
+                                       "pop"="black",
+                                       "mic"="black"),
+                                        guide = guide_legend(override.aes = list(
+                                          linetype =  c(1,2,3,0),
+                                          shape = c(NA, NA,NA,1),
+                                          fill = c("white", "white","white", "white")
+                                          ),
+                                          title=""),
+                                        labels=c("Individual Prediction", 
+                                                 "Population Prediction", "MIC","TDM Data")
+                              ) + 
+          scale_fill_manual(values=c("s1"="blue","s2"="blue","s3"="blue","s4"="blue","target"="darkgreen"
+                                     ),
+                                     guide = guide_legend(override.aes = list(
+                                       alpha=c(0.2,0.175,0.15,0.1,0.1),
+                                        linetype =  c(0,0,0,0,0),
+                                        shape = c(NA, NA,NA,NA,NA)),
+                                        title=""),
+                                        labels=c("80 % Interval", 
+                                                 "85 % Interval",
+                                                 "90 % Interval",
+                                                 "95 % Interval","Target for Cmin"
+                                                 )) + 
+          theme(legend.position = "left")
+        
+        
+        ind_pars <- (app_data$mcmc_result[[10]])
     
     }
     
@@ -229,20 +351,23 @@ shinyServer(function(input, output, session) {
     
     ## Check if TDM concentration is above upper prediction interval to readjust the plot limits on y-axis
     pop_y_max <- ifelse(max(tdm_data$conc) > pop_y_max, max(tdm_data$conc), pop_y_max)
-   
+    
+    app_data$standard_y_zoom_pop <- c(0,pop_y_max*1.1)
+    app_data$standard_x_zoom_pop <- c(x_min, x_max)
+       
     ## prepare population boxplot
     pop_boxplot <- ggplot(data=data.frame(conc=dat_mc[,ncol(dat_mc)], time="")) + geom_boxplot(aes(x=time, y=conc)) + plot_theme +
       theme(axis.text.y = element_blank(), axis.title.y = element_blank(), 
             axis.ticks.y = element_blank())+ ggtitle("C last [mg/L]" , "Population") + 
-      xlab("\n") + ylim(c(0,pop_y_max*1.1)) 
+      xlab("\n") + coord_cartesian(ylim=c(0,pop_y_max*1.1), expand = F)
     
     ## Prepare population PK plot
-    pop_plot <- ggplot(data=plot_dat)  + geom_line(aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), y=CP, colour="pop")) +
-      geom_ribbon(aes(x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference), ymax=CP_max, ymin=CP_min, fill="s1"), alpha=0.15) +
-      plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Population Prediction Using Patient Covariates", "95% PI") +
-      ylim(c(0,pop_y_max*1.1)) +
+    pop_plot <- ggplot(data=plot_dat)  + geom_line(aes(x=TIME, y=CP, colour="pop")) +
+      geom_ribbon(aes(x=TIME, ymax=CP_max, ymin=CP_min, fill="s1"), alpha=0.15) +
+      plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Population Prediction Using Patient Covariates", "Select area and double click for zoom and unzoom") +
       geom_hline(aes(yintercept=input$MIC, colour="mic"), linetype=3, size=1) +
-      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(temp_time*3600, origin=app_data$time_reference),fill="target"), alpha=0.3) +  scale_x_datetime( labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) + 
+      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=TIME,fill="target"), alpha=0.3) +  scale_x_datetime( labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) + 
+      coord_cartesian(ylim=app_data$standard_y_zoom_pop, xlim=app_data$standard_x_zoom_pop, expand = F) +
       scale_colour_manual(values=c("mic"="black", "pop"="blue"),
                           guide = guide_legend(override.aes = list(
                             linetype =  c(3,1),
@@ -373,7 +498,7 @@ shinyServer(function(input, output, session) {
     
     if(app_data$tdm_samples_available){
     
-        return(plots <- list(ind_plot, pop_plot, ind_boxplot, pop_boxplot))
+      return(plots <- list(ind_plot, pop_plot, ind_boxplot, pop_boxplot))
     } else {
       return(plots <- list(NULL, pop_plot, NULL, pop_boxplot))
     }
@@ -387,7 +512,7 @@ shinyServer(function(input, output, session) {
     }
     
 
-    plot(app_data$adapted_pk_plot)
+    app_data$adapted_pk_plot
     
   })
   
@@ -398,9 +523,9 @@ shinyServer(function(input, output, session) {
     } 
     
     if(app_data$tdm_samples_available) {
-        grid.arrange(app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=1, ncol=2,widths=c(4,1))
+      app_data$pk_plots[[1]]
     } else {
-      grid.arrange(app_data$pk_plots[[2]], app_data$pk_plots[[4]], nrow=1, ncol=2,widths=c(4,1))
+      app_data$pk_plots[[2]]
     }
     
     
@@ -620,17 +745,25 @@ shinyServer(function(input, output, session) {
                           s7=s[4,],s8=s[5,],
                           max=s[9,]) # median 
     
+    pk_data$time <- as.POSIXct.numeric(pk_data$time*3600,origin=app_data$time_reference)
+    
+    app_data$standard_y_zoom_adapt = c(0, max(pk_data$s2)*1.1)
+    app_data$standard_x_zoom_adapt = c(x_min, x_max)
+    
+    app_data$user_y_zoom_adapt = c(0, max(pk_data$s2)*1.1)
+    app_data$user_x_zoom_adapt = c(x_min, x_max)
     
     ## Build raw individual PK plot
     p <- ggplot(pk_data) + 
       geom_hline(aes(yintercept=input$MIC, colour="mic"), linetype=3, size=1) +
-      geom_ribbon(aes(ymin=s1, ymax=s2, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), fill="s1" ), alpha=0.15) + 
-      geom_ribbon(aes(ymin=s3, ymax=s4, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), fill="s2" ), alpha=0.15) + 
-      geom_ribbon(aes(ymin=s5, ymax=s6, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), fill="s3" ), alpha=0.15) + 
-      geom_ribbon(aes(ymin=s7, ymax=s8, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), fill="s4" ), alpha=0.15) + 
-      geom_line(aes(y=max, x=as.POSIXct.numeric(time*3600,origin=app_data$time_reference), colour="pred"))+
-      plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Prediction of new Dosing Scheme beginning at last event (Dose or TDM)", "80/85/90/95% PI") + 
-      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=as.POSIXct.numeric(TIME*3600, origin=app_data$time_reference),fill="target"), alpha=0.3) +  scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET"), limits = c(x_min,x_max)) 
+      geom_ribbon(aes(ymin=s1, ymax=s2, x=time, fill="s1" ), alpha=0.15) + 
+      geom_ribbon(aes(ymin=s3, ymax=s4, x=time, fill="s2" ), alpha=0.15) + 
+      geom_ribbon(aes(ymin=s5, ymax=s6, x=time, fill="s3" ), alpha=0.15) + 
+      geom_ribbon(aes(ymin=s7, ymax=s8, x=time, fill="s4" ), alpha=0.15) + 
+      geom_line(aes(y=max, x=time, colour="pred"))+
+      plot_theme + xlab("") + ylab("Vancomycin Plasma Concentration [mg/L]") + ggtitle("Prediction of new Dosing Scheme beginning at last event (Dose or TDM)", "Select area and double click for zoom and unzoom") + 
+      geom_ribbon(aes(ymin=input$low.target, ymax=input$high.target, x=time,fill="target"), alpha=0.3) +  scale_x_datetime(labels = date_format("%a %d.%m.%Y\n%H:%M", tz = "CET")) +
+      coord_cartesian(xlim=app_data$standard_x_zoom_adapt, ylim=app_data$standard_y_zoom_adapt, expand = F)
     
     if (app_data$tdm_samples_available){
          p <- p+ scale_colour_manual(values=c("mic"="black",
@@ -722,7 +855,7 @@ shinyServer(function(input, output, session) {
   output$info.report <- renderText({
     
     
-    paste("<h4>4. Create and Export PDF Report:</h4><h5><BR>Click the <B>\"Download Report\"</B> Button.</h5>")
+    paste("<h4>4. Create and Export PDF Report:</h4><h5><BR>Click the <B>\"Download Report\"</B> Button. After downloading, <B>\"Reset\"</B> the App to analyze additional data.</h5>")
     
   })
   
@@ -769,13 +902,14 @@ shinyServer(function(input, output, session) {
   })
   
   observeEvent(input$submit, {
-               ## Submit changes
                
-               app_data$pk_plots <- updatePKPlot()
+    app_data$step_one_completed = T
+    
+    app_data$pk_plots <- updatePKPlot()
                
-               reset_adapt_to_last_known_dose()
+    reset_adapt_to_last_known_dose()
                
-               updateTabsetPanel(session, inputId = "mainpage", selected = "PK Plots")
+    updateTabsetPanel(session, inputId = "mainpage", selected = "PK Plots")
 
   })
   
@@ -1062,6 +1196,12 @@ shinyServer(function(input, output, session) {
       updateNumericInput(session, inputId = "adapt.dur", value = round(as.numeric(as.character(opt_res$par[1])),2) )
     }
     
+    #
+    # ---- Perform consequences in GUI and app_data
+    #
+    
+    app_data$step_two_completed = T
+    
     updateSelectizeInput(session, inputId = "choose_recommendation", selected = 2 )
     
     updateTabsetPanel(session, inputId = "mainpage", selected = "Dose Adaptation")
@@ -1090,18 +1230,71 @@ shinyServer(function(input, output, session) {
     
     ## Use manual adaptation adaptation algorithm
     
-    updateTabsetPanel(session, inputId = "mainpage", selected = "Dose Adaptation")
+    app_data$step_two_completed = T
     
     reset_adapt_to_last_known_dose()
     
-    delay(1000,
+    delay(1000,{
           updateAdapted_pk_plot()
+          updateTabsetPanel(session, inputId = "mainpage", selected = "Dose Adaptation")
+      }
     )
+    
+    
+    
+  })
+  
+  observeEvent(input$pk_doubleclick, {
+    
+    if(!is.null(input$pk_brush)){
+        app_data$user_y_zoom <- c(input$pk_brush$ymin, input$pk_brush$ymax)
+        app_data$user_x_zoom <- c(input$pk_brush$xmin, input$pk_brush$xmax)
+        
+        app_data$user_y_zoom_pop <- c(input$pk_brush$ymin, input$pk_brush$ymax)
+        app_data$user_x_zoom_pop <- c(input$pk_brush$xmin, input$pk_brush$xmax)
+
+        app_data$user_x_zoom<- as.POSIXct.numeric(app_data$user_x_zoom,origin=as.POSIXct(strptime("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")))
+        app_data$user_x_zoom_pop<- as.POSIXct.numeric(app_data$user_x_zoom_pop,origin=as.POSIXct(strptime("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")))
+
+        
+        if(!is.null(app_data$pk_plots[[1]])){
+          app_data$pk_plots[[1]] <- app_data$pk_plots[[1]]+ coord_cartesian(ylim=app_data$user_y_zoom, xlim=app_data$user_x_zoom, expand = F)
+        } else {
+          app_data$pk_plots[[2]] <- app_data$pk_plots[[2]]+ coord_cartesian(ylim=app_data$user_y_zoom_pop, xlim=app_data$user_x_zoom_pop, expand = F)
+        }
+    } else {
+      if(!is.null(app_data$pk_plots[[1]])){
+        app_data$pk_plots[[1]] <- app_data$pk_plots[[1]]+ coord_cartesian(ylim=app_data$standard_y_zoom, xlim=app_data$standard_x_zoom, expand = F)
+      } else {
+        app_data$pk_plots[[2]] <- app_data$pk_plots[[2]]+ coord_cartesian(ylim=app_data$standard_y_zoom_pop, xlim=app_data$standard_x_zoom_pop, expand = F)
+      }
+    }
+     
+  })
+  
+  observeEvent(input$pk_adapt_doubleclick, {
+    
+    if(!is.null(input$pk_adapt_brush)){
+      app_data$user_y_zoom_adapt <- c(input$pk_adapt_brush$ymin, input$pk_adapt_brush$ymax)
+      app_data$user_x_zoom_adapt <- c(input$pk_adapt_brush$xmin, input$pk_adapt_brush$xmax)
+
+      app_data$user_x_zoom_adapt<- as.POSIXct.numeric(app_data$user_x_zoom_adapt,origin=as.POSIXct(strptime("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")))
+
+      
+      app_data$adapted_pk_plot <- app_data$adapted_pk_plot + coord_cartesian(ylim=app_data$user_y_zoom_adapt, xlim=app_data$user_x_zoom_adapt, expand = F)
+      
+    } else {
+
+      app_data$adapted_pk_plot <- app_data$adapted_pk_plot + coord_cartesian(ylim=app_data$standard_y_zoom_adapt, xlim=app_data$standard_x_zoom_adapt, expand = F)
+
+    }
     
   })
   
   observeEvent(input$but.report, {
     ## Use dosage adaptation algorithm
+    
+    app_data$step_three_completed = T
     
     updateTabsetPanel(session, inputId = "mainpage", selected = "Clinical Report")
     
@@ -1111,9 +1304,32 @@ shinyServer(function(input, output, session) {
     includeText("version.txt")
   })
   
+  
+  
+  observe({
+    if (req(input$mainpage) == "Clinical Report"){
+      if(!(app_data$step_one_completed & app_data$step_two_completed & app_data$step_three_completed)){
+        showModal(modalDialog(
+          title = "Error",
+          HTML(paste("<B>Not all three stages have been completed! </B><BR>", 
+                     "Please complete steps 1 to 3 prior to report creation.")), 
+          
+          easyClose = TRUE,
+          footer = NULL
+        ))
+        updateTabsetPanel(session, inputId = "mainpage", selected = "Enter Patient data")
+      }
+    }
+
+  })
+  
+  
+  
   output$but.download = downloadHandler(
     
-    ## Filename includes patiend ID
+    
+    
+    ## Filename includes patient ID
     filename = paste("report_", input$pat_ID, ".pdf", sep=""),
     content = function(file) {
       withProgress(message = "Compiling report ...", style="notification", value =0 ,{
@@ -1127,5 +1343,6 @@ shinyServer(function(input, output, session) {
       })
     }
   )
+
   
 })

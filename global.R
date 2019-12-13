@@ -12,6 +12,12 @@ library('scales')
 library('kableExtra')
 library('rmarkdown')
 
+##
+#  --- Define global variables here ---
+##
+
+# ---- Labels for selectInput ---------
+
 GLOB_PATHOGENS <- c("MRSA"=1, 
                     "Unidentified"=2, 
                     "Mixed infection"=3)
@@ -26,13 +32,10 @@ GLOB_ADAPT_WHAT <- c("Dose"=1,
                      "Infusion Duration"=3,
                      "All of those"=4)
 
-#Set Color scheme
+# ---- color scheme and plot theme ---
+
 main_plot_col <- "#E95420"
-sec_plot_col <- "grey20"
-sec_plot_highDose_col <- "darkorange"
-sec_plot_lowDose_col <- "#00a500"
-sec_plot_shortInt_col <- "darkgrey"
-sec_plot_longInt_col <- "#00a599"
+
 limit_plot_col <-"#990000"
 text_plot_col <- "grey20"
 cont_plot_col <- "lightgrey"
@@ -49,6 +52,7 @@ plot_theme <- theme(axis.text.x = element_text(colour=text_plot_col,size=12,angl
                     panel.background = element_rect(fill = backg_plot_col, colour = cont_plot_col), panel.border = element_blank(), panel.grid.major = element_line(colour = plot_grid_col, linetype = 2),
                     panel.grid.minor = element_line(colour = plot_grid_col, linetype = 2), axis.line = element_line(colour = line_plot_col))
 
+# ---- Parameters for popPK Model
 
 THETAS = c(4.5,  ## THETA1 -  clearance (L/h)
            58.4, ## THETA2 - volume of central compartment (L)
@@ -68,17 +72,16 @@ OMEGAS = c(0.398,
 
 SIGMA = c(0.227)
 
-dosing_events = data.frame(time=c(0, 12, 24),
-                           amt=c(1000, 1000, 1000),
-                           t_inf=c(0.5, 0.5, 0.5))
+##
+ # ---- End definition of global variables
+##
 
-ETAS = c(0,0,0)
+##
+#  ---- Begin Definition of global available functions
+##
 
+# ---- Analytical solution of 2cmt model with zero order infusion 
 
-
-
-
-## analytical solution of 2cmt model multiple doses 
 pk_2cmt_infusion <- function(theta, params, eta, dosing_events, times){
   
 
@@ -163,7 +166,8 @@ pk_2cmt_infusion <- function(theta, params, eta, dosing_events, times){
   return(dat)
 }
 
-## Process a NONMEM like dataset
+# ---- Process a NONMEM like dataset and perform mcmc 
+
 process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                                                   amt=c(100,".",".",100,".","."),
                                                   conc=c(".", 2, 3, ".", 1.5, 0.72),
@@ -184,7 +188,8 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   
   
   
-  # inner function to generate individual PK plot
+  # --- inner function to generate individual PK plot data
+  
   do_plot <- function(jags_result, nburn=n.burn, time_reference){
     
     ## Use the fourth chain for the simulation
@@ -198,6 +203,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
     mcmc_ind_pars <- data.frame()
     
     ## Simulate with the etas obtained by sampling from the posterior distribution
+    
     withProgress(message = "Processing MCMC results", max = nrow(df), {
       for (i in 1:nrow(df)) {
         
@@ -260,7 +266,8 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                 ))
   }
   
-  ### Generate MCMC trace plots and distributions for every eta
+  # --- Generate MCMC trace plots and distributions for every eta estimated 
+  
   mcmc_diagnosticplots <- function(chain=1, jags_result, nburn = n.burn, omega, colour="red") {
     
     df <- as.data.frame(jags_result[[chain]]) ## Dataframe with etas
@@ -351,8 +358,8 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   ### Use JAGS model to sample from posterior distribution
   ### According to the selected model
 
-  #### ---- For some reason, JAGS runs more stable when SD is submitted to the model and is ----#
-  #### Calculated back to variance in the model file --- ?? 
+  #### ---- Compile and run JAGS model
+  
   jags <- jags.model('Goti_et_al.bug',
                     data = list('c' = tdm_data$conc,
                                 'amt' = dosing_events$amt, 
@@ -366,19 +373,23 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                     n.chains = 4,
                     n.adapt = n.iter)
   
+  ### ---- sample from the model
+  
   d <- coda.samples(jags,
                     c('eta1', 'eta2', 'eta3'),
                     n.iter, thin=1)
   
-  
+  # ---- Derive PK plot data from the mcmc samples using the inner function
   
   pk_profile <- (do_plot(d, time_reference=time_reference))
   
+  # ---- Create Diagnostic plots from mcmc data
   
   mcmc_plots_1 <- mcmc_diagnosticplots(1, d, nburn=n.burn, omega=omegas, "red")
   mcmc_plots_2 <- mcmc_diagnosticplots(2, d, nburn=n.burn, omega=omegas, "orange")
   mcmc_plots_3 <- mcmc_diagnosticplots(3, d, nburn=n.burn, omega=omegas, "yellow")
   mcmc_plots_4 <- mcmc_diagnosticplots(4, d, nburn=n.burn, omega=omegas, "blue")
+  
   ## Use the fourth chain for the simulation
   df <- as.data.frame(d[[4]])
   
@@ -401,28 +412,34 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
 }
 
 
-perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to, by=0.2) {
-  
+# --- GLOBAL function for the MC simulation
 
-    mc_eta2 <- (rnorm(n = n.mc, mean=0, sd=(omegas[2])))
-    mc_eta3<- (rnorm(n = n.mc, mean=0, sd=(omegas[3])))
-    mc_eta1<- (rnorm(n = n.mc, mean=0, sd=(omegas[1])))
+perform_mc_simulation <- function(n.mc, omegas, thetas, data_set, params, t_from, t_to, by=0.2) {
+  
+  # Take random n.mc random samples for the eta values using the standard deviation from the popPK model
+
+  mc_eta2 <- (rnorm(n = n.mc, mean=0, sd=(omegas[2])))
+  mc_eta3 <- (rnorm(n = n.mc, mean=0, sd=(omegas[3])))
+  mc_eta1 <- (rnorm(n = n.mc, mean=0, sd=(omegas[1])))
     
-    all_etas <- data.frame(eta1=mc_eta1, eta2=mc_eta2, eta3=mc_eta3)
+  ## summarize etas in a data.frame
+  
+  all_etas <- data.frame(eta1=mc_eta1, eta2=mc_eta2, eta3=mc_eta3)
   
   
   dat_mc <- NULL
-  
   
   mc_se <- list()
 
   mc_ind_pars <- data.frame()
   
-  pk_data <- app_data$data_set
+  ## Get 
+  
+  d_set <- data_set
 
-  dosing_events <- data.frame(time=as.numeric(as.character(pk_data[pk_data$evid==1,]$time)),
-                              amt=as.numeric(as.character(pk_data[pk_data$evid==1,]$amt)),
-                              dur=as.numeric(as.character(pk_data[pk_data$evid==1,]$dur)))
+  dosing_events <- data.frame(time=as.numeric(as.character(d_set[d_set$evid==1,]$time)),
+                              amt=as.numeric(as.character(d_set[d_set$evid==1,]$amt)),
+                              dur=as.numeric(as.character(d_set[d_set$evid==1,]$dur)))
   
   ## Do with progress
   withProgress(message = "Performing Monte Carlo simulation", max = n.mc, {
@@ -430,7 +447,7 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, app_data, t_from, t_to, 
       ### Simulate population PK profiles for every monte carlo sample according to the PK model currently
       ### Selected
       temp_dat <- pk_2cmt_infusion(theta = thetas,
-                                   params = app_data$params,
+                                   params = params,
                                    eta = c(all_etas$eta1[i], all_etas$eta2[i], all_etas$eta3[i]),
                                    dosing_events = dosing_events,
                                    times=seq(t_from,t_to, by))

@@ -89,7 +89,7 @@ Infusion duration: **`r input$adapt.dur`** min
 
 ``` {r recomm, echo=FALSE, warning=FALSE, fig.height = 7, fig.width = 12, fig.align = "center"}
 
-plot(app_data$adapted_pk_plot)
+  app_data$adapted_pk_plot
 
 ```
 
@@ -116,9 +116,9 @@ kable(app_data$user_data_set, format = "latex")  %>%
 
 ```{r simulation, echo=FALSE, warning=FALSE, fig.height = 7, fig.width = 12, fig.align = "center"}
 if(app_data$tdm_samples_available){
-grid.arrange(app_data$pk_plots[[1]], app_data$pk_plots[[3]], nrow=1, ncol=2,widths=c(4,1))
+  app_data$pk_plots[[1]]
 } else {
-  grid.arrange(app_data$pk_plots[[2]], app_data$pk_plots[[4]], nrow=1, ncol=2,widths=c(4,1))
+  app_data$pk_plots[[2]]
 }
 
 ```

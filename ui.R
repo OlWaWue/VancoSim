@@ -43,14 +43,16 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                    tabPanel("PK Plots", htmlOutput("info.pk"),hr(),
                             sidebarLayout(
                               sidebarPanel(
-                                actionButton("but.man_adapt", label = "Manual Dose Adaptation", icon = icon("hand-paper"), width = NULL),br(),br(),
-                                actionButton("but.adapt", label = "Automatic Dose Adaptation", icon = icon("calculator"), width = NULL),br(),br(),
+                                actionButton("but.man_adapt", label = "Manual Adaptation", icon = icon("hand-paper"), width = NULL),br(),br(),
+                                actionButton("but.adapt", label = "Automatic Adaptation", icon = icon("calculator"), width = NULL),br(),br(),
                                 selectInput("adapt.for", "Adapt for:", selected=1, GLOB_ADAPT_FOR),
                                 selectInput("adapt.what", "Adapt ...", selected=1, GLOB_ADAPT_WHAT)
                                 
                               ),
                               mainPanel(
-                                plotOutput("pkPlot", height = 600)
+                                plotOutput("pkPlot", height = 600,
+                                           brush=brushOpts(id="pk_brush"),
+                                           dblclick="pk_doubleclick")
                               )
                             )
                     ),
@@ -62,11 +64,13 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                 numericInput(inputId="adapt.ii", label="New Interdose Interval [h]", value = 12, step=1, min = 6),
                                 numericInput(inputId="adapt.dur", label="New Duration of Infusion [min]", value = 60, step=10, min=10),
                                 numericInput(inputId="adapt.n", label="Number of Dosing Events to simulate", value = 5, step=1, min=3),
-                                actionButton("but.reset", label = "Reset to last known dose", icon = icon("undo"), width = NULL),
+                                actionButton("but.reset", label = "Reset to last known dose", icon = icon("undo"), width = NULL),br(),br(),
                                 actionButton("but.refresh", label = "Refresh Simulation", icon = icon("refresh"), width = NULL)
                               ),
                               mainPanel(
-                                plotOutput("adapted_pkPlot", height = 600)
+                                plotOutput("adapted_pkPlot", height = 600,
+                                           brush=brushOpts(id="pk_adapt_brush"),
+                                           dblclick="pk_adapt_doubleclick")
                               )
                             )  
                    ),
@@ -79,10 +83,11 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                 
                                 checkboxInput("additional_tdm", "Recommend additional TDM?", value = F),
                                 checkboxInput("add_dur_info", "Add note about Infusion duration?", value = F),
-                                downloadButton("but.download", "Download Report")
+                                downloadButton("but.download", "Download Report"), br(), br(),
+                                actionButton("but.resetApp", label = "Reset Application", icon = icon("undo"), width = NULL)
                               ),
                               mainPanel(
-                                textAreaInput("report_comment", "Additional comment: ")
+                                textAreaInput("report_comment", "Additional comment: ", width="100%")
                               )
                             )  
                    ),
@@ -109,16 +114,16 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                    ),
                    tabPanel("Model File", htmlOutput("info.model"),hr(),
                             verbatimTextOutput("modelfile")),
-                    tabPanel("Settings", htmlOutput("info.settings"),hr(),
-                             numericInput(inputId="mcmc.iter", label="Iterations MCMC", value =1000),
-                             numericInput(inputId="mc.iter", label="Iterations MC", value =1000),
-                             numericInput(inputId="mcmc.burn", label="Burn-in Iterations MCMC", value =200),
-                             numericInput(inputId="delta.t", label="Delta time [h]", value =0.25),
-                             numericInput(inputId="simulate.t", label="Simulate time [h]", value =0),
-                             numericInput(inputId="low.target", label="Target Throughconcentration [mg/L]", value =15),
+                   tabPanel("Settings", htmlOutput("info.settings"),hr(),
+                             numericInput(inputId="mcmc.iter",   label="Iterations MCMC", value =1000),
+                             numericInput(inputId="mc.iter",     label="Iterations MC", value =1000),
+                             numericInput(inputId="mcmc.burn",   label="Burn-in Iterations MCMC", value =200),
+                             numericInput(inputId="delta.t",     label="Delta time [h]", value =0.25),
+                             numericInput(inputId="simulate.t",  label="Simulate time [h]", value =0),
+                             numericInput(inputId="low.target",  label="Target Throughconcentration [mg/L]", value =15),
                              numericInput(inputId="high.target", label="Limit Cmax [mg/L]", value =20)
-                             ),
-                   tabPanel("About", htmlOutput("info.about"),hr(),
+                    ),
+                    tabPanel("About", htmlOutput("info.about"),hr(),
                                                      img(src="daGama_logo.png", height = 90, width = 300),
                                                      withTags({
                                                        div(class="header", checked=NA, 
@@ -139,6 +144,6 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                                            verbatimTextOutput("vers"))
                                                      })
                           
-                   )
+                    )
             )
 )
