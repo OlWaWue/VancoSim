@@ -914,19 +914,6 @@ shinyServer(function(input, output, session) {
 
   })
   
-  observeEvent(input$adapt.dur, {
-    if(input$adapt.dur < 60){
-      showModal(modalDialog(
-        title = "CAVE",
-        HTML(paste("<B>Infusion duratin should exceed 60 minutes! </B><BR>", 
-                   "Risk of Red-Man-Syndrome!", 
-                   "<BR>",
-                   "See: <a href=\"https://www.ncbi.nlm.nih.gov/books/NBK482506/\"> Red Man Syndrome</a>")),
-        easyClose = TRUE,
-        footer = NULL
-      ))
-    }
-  })
   
   observeEvent(input$but.adapt, {
     ## Use dosage adaptation algorithm
@@ -1213,6 +1200,18 @@ shinyServer(function(input, output, session) {
   
   observeEvent(input$but.refresh, {
     ## Use dosage adaptation algorithm
+    if(input$adapt.dur < 60){
+      showModal(modalDialog(
+        title = "CAVE",
+        HTML(paste("<B>Infusion duratin should exceed 60 minutes! </B><BR>", 
+                   "Risk of Red-Man-Syndrome!", 
+                   "<BR>",
+                   "See: <a href=\"https://www.ncbi.nlm.nih.gov/books/NBK482506/\"> Red Man Syndrome</a>")),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+    }
+    
     updateAdapted_pk_plot()
     
   })
