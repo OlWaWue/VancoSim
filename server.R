@@ -36,10 +36,13 @@ shinyServer(function(input, output, session) {
       
       app_data$last_known_dose$ii <- ii
       app_data$last_known_dose_orig$II <- ii
+      
+      get_cov_from_dataset(app_data$data_set, seq(0,72,0.1))
+      
     },
     error = function(e){
       showModal(modalDialog(
-        title = label_error,
+        title = "ERROR",
         HTML(paste("File not recognized!<br>Details:<br><br>",e)),
         easyClose = TRUE,
         footer = NULL
@@ -47,6 +50,86 @@ shinyServer(function(input, output, session) {
     })
     
   })
+  
+  
+  get_cov_from_dataset <- function(dataset, times) {
+    
+    
+    
+    WT <- dataset[dataset$evid == 2 & dataset$wt !=".",]
+    CLCR <- dataset[dataset$evid == 2 & dataset$crcl !=".",]
+    DIAL <- dataset[dataset$evid == 2 & dataset$dial !=".",]
+    
+
+    
+    pat_CLCR = data.frame(time=c(0,CLCR$time),
+                          value=c(input$CRCL, as.numeric(as.character(CLCR$crcl))))
+    
+    pat_WT = data.frame(time=c(0,WT$time),
+                        value=c(input$WT,as.numeric(as.character(WT$wt))))
+    
+    pat_DIAL = data.frame(time=c(0,DIAL$time),
+                          value=c(input$has_dialysis, as.numeric(as.character(DIAL$dial))))
+    
+    print(pat_CLCR)
+    print(pat_WT)
+    print(pat_DIAL)
+    
+    time_dep_cov <- data.frame(time=times)
+    time_dep_cov$ClCr <- 0
+    time_dep_cov$WT <- 0
+    time_dep_cov$DIAL <- 0
+    
+    
+    
+    for(i in 1:nrow(pat_CLCR)){
+      time_dep_cov$ClCr <- ifelse(pat_CLCR$time[i] <= time_dep_cov$time, pat_CLCR$value[i], time_dep_cov$ClCr)
+    }
+    
+    if(nrow(pat_CLCR>1)){
+      for(i in 1:(nrow(pat_CLCR)-1) ){
+        temp_data <- data.frame(time=c(pat_CLCR$time[i], pat_CLCR$time[i+1]), value=c(pat_CLCR$value[i], pat_CLCR$value[i+1]))
+        
+        temp_lin_mod <- lm(value~time, data = temp_data)
+        
+        predicted_CrCL <- (predict(temp_lin_mod, newdata=data.frame(time=time_dep_cov$time)))
+        
+        time_dep_cov$ClCr <- ifelse(pat_CLCR$time[i+1] >= time_dep_cov$time, predicted_CrCL, time_dep_cov$ClCr)
+        
+        
+      }
+    }
+    
+    for(i in 1:nrow(pat_WT)){
+      time_dep_cov$WT <- ifelse(pat_WT$time[i] <= time_dep_cov$time, pat_WT$value[i], time_dep_cov$WT)
+    }
+    
+    
+    if(nrow(pat_WT>1)){
+      for(i in 1:(nrow(pat_WT)-1) ){
+        temp_data <- data.frame(time=c(pat_WT$time[i], pat_WT$time[i+1]), value=c(pat_WT$value[i], pat_WT$value[i+1]))
+        
+        
+        print(temp_data)
+        temp_lin_mod <- lm(value~time, data = temp_data)
+        
+        predicted_WT<- (predict(temp_lin_mod, newdata=data.frame(time=time_dep_cov$time)))
+        
+        time_dep_cov$WT <- ifelse(pat_WT$time[i+1] >= time_dep_cov$time, predicted_WT, time_dep_cov$WT)
+        
+        
+      }
+    }
+    
+    
+    
+    for(i in 1:nrow(pat_DIAL)){
+      time_dep_cov$DIAL <- ifelse(pat_DIAL$time[i] <= time_dep_cov$time, pat_DIAL$value[i], time_dep_cov$DIAL)
+    }
+    
+    
+   # print(time_dep_cov)
+  }
   
   observeEvent(input$but.resetApp, {
 
@@ -193,7 +276,10 @@ shinyServer(function(input, output, session) {
                             AMT = data$AMT,
                             CONC = data$CONC,
                             EVID = data$EVID,
-                            DUR = data$DUR) 
+                            DUR = data$DUR,
+                            WT = data$WT,
+                            CRCL = data$CRCL,
+                            DIAL = data$DIAL) 
 
 
     
@@ -210,7 +296,13 @@ shinyServer(function(input, output, session) {
                             amt = data$AMT,
                             conc = data$CONC,
                             evid = data$EVID,
-                            dur = as.numeric(data$DUR)/60)
+                            dur = as.numeric(data$DUR)/60,
+                            wt = data$WT,
+                            crcl = data$CRCL,
+                            dial = data$DIAL)
+    
+    
+
     
     return(list(original_data=orig_data,
                 conv_data=conv_data,

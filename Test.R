@@ -32,26 +32,35 @@ dosing_time = c(0,12,24)
 
 dosing_time < 15
 
-times = c(10)
+times=seq(0,72,0.1)
 
+tdm_times = c(10, 23)
 
+temp_times <- NULL
+for(i in 1:length(tdm_times)){
+  temp_times <- c(temp_times, which(times == tdm_times[i]))
+}
 
-tdm_data = data.frame(time=times, conc=c(10))
+tdm_data = data.frame(time=tdm_times, conc=c(10, 20))
 
 jags.mod <- jags.model('Goti_et_al.bug',
-                  data = list('c' = c(10),
+                  data = list('c' = c(10, 20),
                               'amt' = c(1000,1000,1000), 
                               'dosing_time' = dosing_time,
                               't_inf' = c(0.5,0.5,0.5),
+                              'CLCR'=time_dep_cov$ClCr, 
+                              'WT'=time_dep_cov$WT, 
+                              'DIAL'=time_dep_cov$DIAL,
                               'times'= times,
-                              'params'=params,
+                              'tdm_times' = temp_times,
                               "theta"=thetas,
                               "omega"=omegas,
                               'sigma'=sigma ),
                   n.chains = 4,
                   n.adapt = 1000)
 
-d <- coda.samples(ags,
+
+d <- coda.samples(jags.mod,
                   c('eta1', 'eta2', 'eta3'),
                   1000, thin=1)
 
@@ -62,7 +71,7 @@ mcmc_se <- list()
 for (i in 1:nrow(df)) {
 
   temp_dat <- pk_2cmt_infusion(theta = thetas,
-                        params = params,
+                        CLCR=time_dep_cov$ClCr, WT=time_dep_cov$WT, DIAL=time_dep_cov$DIAL,
                         eta = c(df$eta1[i], df$eta2[i], df$eta3[i]),
                         dosing_events = dosing_events,
                         times=seq(0,72,0.1))
@@ -101,3 +110,4 @@ p <- ggplot(pk_data) +
   geom_line(data=res, aes(x=times, y=IPRED), linetype=2)
 
 plot(p)
+
