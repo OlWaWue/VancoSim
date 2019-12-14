@@ -46,7 +46,7 @@ model
   
   for(z in 1: length(tdm_times)){
   
-    c[z]~dnorm(mu[tdm_times[z]], 1/pow(sigma,2))
+    c[z]~dnorm(mu[tdm_times[z]], 1/pow(sigma,2)) # TODO: simulate proportional error component
   }
 
 }

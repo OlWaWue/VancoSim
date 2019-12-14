@@ -37,7 +37,7 @@ shinyServer(function(input, output, session) {
       app_data$last_known_dose$ii <- ii
       app_data$last_known_dose_orig$II <- ii
       
-      get_cov_from_dataset(app_data$data_set, seq(0,72,0.1))
+      
       
     },
     error = function(e){
@@ -60,33 +60,46 @@ shinyServer(function(input, output, session) {
     CLCR <- dataset[dataset$evid == 2 & dataset$crcl !=".",]
     DIAL <- dataset[dataset$evid == 2 & dataset$dial !=".",]
     
-
+    if(nrow(CLCR)==0){
+      pat_CLCR = data.frame(time=c(0),
+                            value=c(input$CRCL))
     
-    pat_CLCR = data.frame(time=c(0,CLCR$time),
-                          value=c(input$CRCL, as.numeric(as.character(CLCR$crcl))))
+    } else {
+      pat_CLCR = data.frame(time=c(0,CLCR$time),
+                            value=c(input$CRCL, as.numeric(as.character(CLCR$crcl))))
+    }
     
-    pat_WT = data.frame(time=c(0,WT$time),
-                        value=c(input$WT,as.numeric(as.character(WT$wt))))
+    if(nrow(WT)==0) {
+      pat_WT = data.frame(time=c(0),
+                          value=c(input$WT))
+    } else {
+      pat_WT = data.frame(time=c(0,WT$time),
+                          value=c(input$WT,as.numeric(as.character(WT$wt))))
+    }
+    if(nrow(DIAL)==0){
+      pat_DIAL = data.frame(time=c(0),
+                            value=c(as.numeric(input$has_dialysis)))
+    } else {
+      pat_DIAL = data.frame(time=c(0,DIAL$time),
+                            value=c(as.numeric(input$has_dialysis), as.numeric(as.character(DIAL$dial))))
+    }
     
-    pat_DIAL = data.frame(time=c(0,DIAL$time),
-                          value=c(input$has_dialysis, as.numeric(as.character(DIAL$dial))))
     
-    print(pat_CLCR)
-    print(pat_WT)
-    print(pat_DIAL)
     
     time_dep_cov <- data.frame(time=times)
-    time_dep_cov$ClCr <- 0
+    time_dep_cov$CLCR <- 0
     time_dep_cov$WT <- 0
     time_dep_cov$DIAL <- 0
     
     
     
     for(i in 1:nrow(pat_CLCR)){
-      time_dep_cov$ClCr <- ifelse(pat_CLCR$time[i] <= time_dep_cov$time, pat_CLCR$value[i], time_dep_cov$ClCr)
+      time_dep_cov$CLCR <- ifelse(pat_CLCR$time[i] <= time_dep_cov$time, pat_CLCR$value[i], time_dep_cov$CLCR)
     }
     
-    if(nrow(pat_CLCR>1)){
+    
+    
+    if(nrow(pat_CLCR)>1){
       for(i in 1:(nrow(pat_CLCR)-1) ){
         temp_data <- data.frame(time=c(pat_CLCR$time[i], pat_CLCR$time[i+1]), value=c(pat_CLCR$value[i], pat_CLCR$value[i+1]))
         
@@ -94,9 +107,8 @@ shinyServer(function(input, output, session) {
         
         predicted_CrCL <- (predict(temp_lin_mod, newdata=data.frame(time=time_dep_cov$time)))
         
-        time_dep_cov$ClCr <- ifelse(pat_CLCR$time[i+1] >= time_dep_cov$time, predicted_CrCL, time_dep_cov$ClCr)
-        
-        
+        time_dep_cov$CLCR <- ifelse(pat_CLCR$time[i+1] >= time_dep_cov$time, predicted_CrCL, time_dep_cov$CLCR)
+
       }
     }
     
@@ -105,12 +117,11 @@ shinyServer(function(input, output, session) {
     }
     
     
-    if(nrow(pat_WT>1)){
+    if(nrow(pat_WT)>1){
       for(i in 1:(nrow(pat_WT)-1) ){
         temp_data <- data.frame(time=c(pat_WT$time[i], pat_WT$time[i+1]), value=c(pat_WT$value[i], pat_WT$value[i+1]))
         
         
-        print(temp_data)
         temp_lin_mod <- lm(value~time, data = temp_data)
         
         predicted_WT<- (predict(temp_lin_mod, newdata=data.frame(time=time_dep_cov$time)))
@@ -126,14 +137,13 @@ shinyServer(function(input, output, session) {
     for(i in 1:nrow(pat_DIAL)){
       time_dep_cov$DIAL <- ifelse(pat_DIAL$time[i] <= time_dep_cov$time, pat_DIAL$value[i], time_dep_cov$DIAL)
     }
-    
-    
-   # print(time_dep_cov)
+   
+    return(time_dep_cov)
   }
   
   observeEvent(input$but.resetApp, {
 
-    
+    app_data$times_to_calculate = NULL
     app_data$mcmc_result = NULL
     app_data$mc_result= NULL
     app_data$disc_shown = F
@@ -144,6 +154,7 @@ shinyServer(function(input, output, session) {
               CRCL=NA,   
               DIAL=NA)     
     
+    app_data$covariates = NULL
     
     app_data$step_one_completed = FALSE
     app_data$step_two_completed = FALSE 
@@ -172,6 +183,8 @@ shinyServer(function(input, output, session) {
     
     app_data$user_y_zoom_adapt = NULL
     app_data$user_x_zoom_adapt = NULL
+    
+    app_data$covariate_plot = NULL
     
   
     
@@ -206,7 +219,9 @@ shinyServer(function(input, output, session) {
     ## AppData used in simulation
     
     mcmc_result = NULL,
+    times_to_calculate = NULL,
     mc_result= NULL,
+    covariates = NULL,
     disc_shown = F,
     user_data_set = NULL,
     data_set = NULL,
@@ -243,8 +258,9 @@ shinyServer(function(input, output, session) {
     standard_x_zoom_adapt = NULL,
     
     user_y_zoom_adapt = NULL,
-    user_x_zoom_adapt = NULL
+    user_x_zoom_adapt = NULL,
     
+    covariate_plot = NULL
     
   )
   
@@ -326,20 +342,38 @@ shinyServer(function(input, output, session) {
     tdm_data <- data.frame(conc=as.numeric(as.character(app_data$data_set[app_data$data_set$evid==0,]$conc)),
                            time=as.numeric(as.character(app_data$data_set[app_data$data_set$evid==0,]$time)))
     
+
     
     # --- Update parameters from GUI
     
     app_data$params <- c(input$WT, input$CRCL, input$has_dialysis)
     
+    
+    ## --- get time variant covariates
+    
 
+    temp_time <- seq(min(times), max(times)+input$simulate.t, by=input$delta.t)
+    
+    temp_time <- c(temp_time, tdm_data$time)
+    
+    temp_time <- unique(temp_time)
+    
+    temp_time <- sort(temp_time)
+    
+    app_data$times_to_calculate <- temp_time
+    
+    cov <- get_cov_from_dataset(app_data$data_set, temp_time)
+    
+    app_data$covariates <- cov
+    
     app_data$mc_result <- perform_mc_simulation(input$mc.iter, ## number of simulations
                                                 OMEGAS, ## omegas
                                                 THETAS, ## thetas
                                                 app_data$data_set, ## App Data for Dosing / TDM Data
-                                                app_data$params,
-                                                min(times), max(times)+input$simulate.t, input$delta.t) ## Time to simulate
+                                                covariates=cov,
+                                                times=temp_time) ## Time to simulate
     
-    temp_time <- seq(min(times), max(times)+input$simulate.t, by=input$delta.t)
+    
     
     plot_dat <- app_data$mc_result [[1]] ## get Plot data ...
     dat_mc <- app_data$mc_result [[2]]  ### .. and raw results from the mc simulation to complete the plots
@@ -357,8 +391,8 @@ shinyServer(function(input, output, session) {
         app_data$mcmc_result = process_data_set(app_data$data_set, n.iter = input$mcmc.iter, n.burn = input$mcmc.burn,
                                                 thetas = THETAS,
                                                 omegas = OMEGAS,
-                                                params = app_data$params,
-                                                TIME =seq(min(times), max(times)+input$simulate.t, by=input$delta.t), 
+                                                covariates=cov,
+                                                TIME =temp_time, 
                                                 SIGMAS=3.4, time_reference=app_data$time_reference) 
         ind_y_max <- app_data$mcmc_result[[7]]
         ind_y_min <- app_data$mcmc_result[[8]]
@@ -390,7 +424,12 @@ shinyServer(function(input, output, session) {
         ind_plot_data$low_target <- input$low.target
         
         ind_plot_data$high_target <-input$high.target
-
+        
+        
+        ### These data can be used to present the simulated covariates
+        temp_cov <- app_data$covariates
+        temp_cov$time <- (as.POSIXct.numeric(app_data$covariates$time*3600,origin=app_data$time_reference))
+       
         
         ## Build raw individual PK plot
         ind_plot <- ggplot(ind_plot_data)  +
@@ -431,7 +470,7 @@ shinyServer(function(input, output, session) {
                                                  "90 % Interval",
                                                  "95 % Interval","Target for Cmin"
                                                  )) + 
-          theme(legend.position = "left")
+          theme(legend.position = "left") 
         
         
         ind_pars <- (app_data$mcmc_result[[10]])
@@ -743,6 +782,7 @@ shinyServer(function(input, output, session) {
     adapted_dosing_events <- app_data$data_set
     
     
+    
     adapted_dosing_events$time <- as.numeric(as.character(adapted_dosing_events$time))
     adapted_dosing_events$amt <- as.numeric(as.character(adapted_dosing_events$amt))
     adapted_dosing_events$dur <- as.numeric(as.character(adapted_dosing_events$dur))
@@ -772,7 +812,13 @@ shinyServer(function(input, output, session) {
     adapted_dosing_events <- adapted_dosing_events[adapted_dosing_events$evid==1,]
     
     
-    adapted_dosing_events <- adapted_dosing_events[,-c(3,4)]
+    
+    adapted_dosing_events <- data.frame(time = adapted_dosing_events$time,
+                                        amt = adapted_dosing_events$amt,
+                                        dur = adapted_dosing_events$dur)
+    
+ 
+    
     
     
     new_dosing_events <- data.frame(time = time, amt = amt, dur = dur)
@@ -793,6 +839,8 @@ shinyServer(function(input, output, session) {
     TIME <- seq(min(times), max(times)+input$adapt.ii, by=input$delta.t)
     
     
+    cov <- get_cov_from_dataset(app_data$data_set, TIME)
+     
     mcmc_se <- list()
    
     ## get tdm data from the table
@@ -804,7 +852,7 @@ shinyServer(function(input, output, session) {
         
         
         temp_dat <- pk_2cmt_infusion(theta = THETAS,
-                                     params = app_data$params,
+                                     CLCR=cov$CLCR, WT=cov$WT, DIAL=cov$DIAL,
                                      eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
                                      dosing_events = adapted_dosing_events,
                                      times=TIME)
@@ -969,7 +1017,7 @@ shinyServer(function(input, output, session) {
   output$info.dist <- renderText({
     
     
-    paste("<h4>Individual Parameter Distribution</h4><h5><BR>These plots show the distributions of population and if available individual pharmacokinetic parameters.</h5>")
+    paste("<h4>Individual Parameter Distribution</h4><h5><BR>These plots show the distributions of population and if available individual pharmacokinetic parameters at baseline.</h5>")
     
   })
   
@@ -1050,7 +1098,16 @@ shinyServer(function(input, output, session) {
       temp <- data.frame(time=time, amt=amt, dur=dur)
       
       
-      tested_dosing_events <- rbind(dos_ev[,-c(3,4)], temp)
+      dos_ev <- data.frame(time=dos_ev$time,
+                           amt=dos_ev$amt,
+                           dur=dos_ev$dur)
+      
+      tested_dosing_events <- rbind(dos_ev, temp)
+      
+      
+      times = seq(min(tested_dosing_events$time), max(tested_dosing_events$time)+II, by=1)
+      
+      cov <- get_cov_from_dataset(app_data$data_set, times)
       
       cmins_adapt <- NULL
       
@@ -1059,12 +1116,12 @@ shinyServer(function(input, output, session) {
           
           
           temp_dat <- pk_2cmt_infusion(theta = THETAS,
-                                       params = app_data$params,
+                                       CLCR=cov$CLCR, WT=cov$WT, DIAL=cov$DIAL,
                                        eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
                                        dosing_events = tested_dosing_events,
-                                       times=max(tested_dosing_events$time)+II)
+                                       times=times)
           
-          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED)
+          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED[nrow(temp_dat)])
           
           
           incProgress(1)
@@ -1109,7 +1166,17 @@ shinyServer(function(input, output, session) {
       temp <- data.frame(time=time, amt=amt, dur=dur)
       
       
-      tested_dosing_events <- rbind(dos_ev[,-c(3,4)], temp)
+      
+      dos_ev <- data.frame(time=dos_ev$time,
+                           amt=dos_ev$amt,
+                           dur=dos_ev$dur)
+      
+      tested_dosing_events <- rbind(dos_ev, temp)
+      
+      
+      times = seq(min(tested_dosing_events$time), max(tested_dosing_events$time)+II, by=1)
+      
+      cov <- get_cov_from_dataset(app_data$data_set, times)
       
       cmins_adapt <- NULL
       
@@ -1118,12 +1185,12 @@ shinyServer(function(input, output, session) {
           
           
           temp_dat <- pk_2cmt_infusion(theta = THETAS,
-                                       params = app_data$params,
+                                       CLCR=cov$CLCR, WT=cov$WT, DIAL=cov$DIAL,
                                        eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
                                        dosing_events = tested_dosing_events,
-                                       times=max(tested_dosing_events$time)+II)
+                                       times=times)
           
-          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED)
+          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED[nrow(temp_dat)])
           
           
           incProgress(1)
@@ -1167,7 +1234,16 @@ shinyServer(function(input, output, session) {
       temp <- data.frame(time=time, amt=amt, dur=dur)
       
       
-      tested_dosing_events <- rbind(dos_ev[,-c(3,4)], temp)
+      dos_ev <- data.frame(time=dos_ev$time,
+                           amt=dos_ev$amt,
+                           dur=dos_ev$dur)
+      
+      tested_dosing_events <- rbind(dos_ev, temp)
+      
+      
+      times = seq(min(tested_dosing_events$time), max(tested_dosing_events$time)+II, by=1)
+      
+      cov <- get_cov_from_dataset(app_data$data_set, times)
       
       cmins_adapt <- NULL
       
@@ -1176,12 +1252,12 @@ shinyServer(function(input, output, session) {
           
           
           temp_dat <- pk_2cmt_infusion(theta = THETAS,
-                                       params = app_data$params,
+                                       CLCR=cov$CLCR, WT=cov$WT, DIAL=cov$DIAL,
                                        eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
                                        dosing_events = tested_dosing_events,
-                                       times=max(tested_dosing_events$time)+II)
+                                       times=times)
           
-          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED)
+          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED[nrow(temp_dat)])
           
           
           incProgress(1)
@@ -1226,7 +1302,16 @@ shinyServer(function(input, output, session) {
       temp <- data.frame(time=time, amt=amt, dur=dur)
       
       
-      tested_dosing_events <- rbind(dos_ev[,-c(3,4)], temp)
+      dos_ev <- data.frame(time=dos_ev$time,
+                           amt=dos_ev$amt,
+                           dur=dos_ev$dur)
+      
+      tested_dosing_events <- rbind(dos_ev, temp)
+      
+      
+      times = seq(min(tested_dosing_events$time), max(tested_dosing_events$time)+II, by=1)
+      
+      cov <- get_cov_from_dataset(app_data$data_set, times)
       
       cmins_adapt <- NULL
       
@@ -1235,12 +1320,12 @@ shinyServer(function(input, output, session) {
           
           
           temp_dat <- pk_2cmt_infusion(theta = THETAS,
-                                       params = app_data$params,
+                                       CLCR=cov$CLCR, WT=cov$WT, DIAL=cov$DIAL,
                                        eta = c(current_etas$eta1[i], current_etas$eta2[i], current_etas$eta3[i]),
                                        dosing_events = tested_dosing_events,
-                                       times=max(tested_dosing_events$time)+II)
+                                       times=times)
           
-          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED)
+          cmins_adapt <- c(cmins_adapt, temp_dat$IPRED[nrow(temp_dat)])
           
           
           incProgress(1)

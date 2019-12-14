@@ -82,7 +82,93 @@ SIGMA = c(0.227)
 
 # ---- Analytical solution of 2cmt model with zero order infusion 
 
-pk_2cmt_infusion <- function(theta, params, eta, dosing_events, times){
+
+pk_2cmt_infusion <- function(theta, CLCR, WT, DIAL, eta, dosing_events, times){
+  
+  dosing_time <- dosing_events[,1]
+  amt <- dosing_events[,2]
+  t_inf <- dosing_events[,3]
+  
+  
+  
+  
+  
+  
+  
+  IPRED <- vector()
+  
+  ## Individuelle parameter ebenfalls in vektoren überführen
+  for(x in 1:length(times)){
+    
+    Cl <- theta[1]*( (CLCR[x]/120)^theta[5]) * (theta[6]^DIAL[x])*exp(eta[1])
+    V1 <- theta[2]*(WT[x]/70) * (theta[7]^DIAL[x])*exp(eta[2])
+    V2 <- theta[3] * exp(eta[3])
+    Q <- theta[4]
+    
+    k=Cl/V1
+    k12 = Q/V1
+    k21 = Q/V2
+    
+    
+    beta = 0.5 * (k12 + k21 + k - sqrt((k12 + k21 + k)^2 - 4 * k21 * k))
+    
+    alpha = (k21 * k) / beta
+    
+    A = 1/V1 *(alpha-k21)/(alpha-beta)
+    B = 1/V1 *(beta-k21)/(beta-alpha)
+    
+    t=times[x]
+    if(t==0) {
+      temp_ipred =0
+    } else{     
+      
+      
+      
+      doses_prior_to_t <- NULL
+      
+      for(i in 1:length(dosing_time)){
+        if (dosing_time[i]<t){
+          doses_prior_to_t <- c(doses_prior_to_t, i)
+        }
+        
+      }
+      
+      
+      temp_delta_td <- dosing_time[length(doses_prior_to_t)]
+      
+      temp_delta_tinf <- t_inf[length(doses_prior_to_t)]
+      
+      temp_amt <- amt[length(doses_prior_to_t)]
+      
+      
+      Di <- amt[doses_prior_to_t] 
+      Di <- Di[-length(amt[doses_prior_to_t])]
+      
+      # Di = amt[dosing_time<t][-length(amt[dosing_time<t])]
+      
+      temp_delta_tdi <- dosing_time[doses_prior_to_t]
+      temp_delta_tdi <- temp_delta_tdi[-length(temp_delta_tdi)]
+      
+      
+      tinf_i <- t_inf[doses_prior_to_t]
+      tinf_i <- tinf_i[-length(amt[doses_prior_to_t])]
+      
+      
+      temp_ipred <- ifelse((t-temp_delta_td)<=temp_delta_tinf,
+                           sum( ( Di/tinf_i *(A/alpha * (1-exp(-alpha*tinf_i )) * exp(-alpha*(t-temp_delta_tdi-tinf_i ) ) + B/beta  * (1-exp(-beta*tinf_i ))  * exp(-beta*(t-temp_delta_tdi-tinf_i ) )) ) ) + ( temp_amt /temp_delta_tinf * (A/alpha * (1-exp(-alpha*(t-temp_delta_td))) + B/beta * (1-exp(-beta*(t-temp_delta_td))))),
+                           sum( amt[dosing_time<t]/t_inf[dosing_time<t] * (A/alpha * (1-exp(-alpha*t_inf[dosing_time<t])) * exp(-alpha*(t-dosing_time[dosing_time<t]-t_inf[dosing_time<t])) + B/beta * (1-exp(-beta*t_inf[dosing_time<t]))  * exp(-beta*(t-dosing_time[dosing_time<t]-t_inf[dosing_time<t]))) )
+      )  
+    }
+    IPRED[x] <- temp_ipred
+  }
+  
+  dat <- data.frame(times=times, IPRED=IPRED, CL_i=Cl, Vc_i=V1, Vp_i=V2, Q_i=Q, CLCR=CLCR, WT=WT, DIAL=DIAL)
+  
+  return(dat)
+}
+
+
+pk_2cmt_infusion_dep <- function(theta, params, eta, dosing_events, times){
   
 
   
@@ -183,7 +269,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                              omegas = c(0.398,
                                         0.816,
                                         0.571),
-                             params,
+                             covariates,
                              TIME = seq(0, 72, by=0.1), SIGMAS, time_reference) {
   
   
@@ -209,7 +295,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
         
           
           temp_dat <- pk_2cmt_infusion(theta = thetas,
-                                       params = params,
+                                       CLCR = covariates$CLCR, covariates$WT, covariates$DIAL,
                                        eta = c(df$eta1[i], df$eta2[i], df$eta3[i]),
                                        dosing_events = dosing_events,
                                        times=TIME)
@@ -360,18 +446,30 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
 
   #### ---- Compile and run JAGS model
   
+  ### tdm_times muss ein Index in time werden!
+  
+  temp_times <- NULL
+  for(i in 1:length(tdm_data$time)){
+    temp_times <- c(temp_times, which(TIME == tdm_data$time[i]))
+  }
+  
+  
   jags <- jags.model('Goti_et_al.bug',
                     data = list('c' = tdm_data$conc,
                                 'amt' = dosing_events$amt, 
                                 'dosing_time' = dosing_events$time,
                                 't_inf' = dosing_events$dur,
-                                'times'= tdm_data$time,
-                                'params'=params,
+                                'CLCR'=covariates$CLCR, 
+                                'WT'=covariates$WT, 
+                                'DIAL'=covariates$DIAL,
+                                'tdm_times'= temp_times,
+                                'times' =TIME,
                                 "theta"=thetas,
                                 "omega"=omegas,
                                 'sigma'=SIGMAS ),
                     n.chains = 4,
                     n.adapt = n.iter)
+  
   
   ### ---- sample from the model
   
@@ -414,7 +512,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
 
 # --- GLOBAL function for the MC simulation
 
-perform_mc_simulation <- function(n.mc, omegas, thetas, data_set, params, t_from, t_to, by=0.2) {
+perform_mc_simulation <- function(n.mc, omegas, thetas, data_set, covariates, times) {
   
   # Take random n.mc random samples for the eta values using the standard deviation from the popPK model
 
@@ -447,10 +545,10 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, data_set, params, t_from
       ### Simulate population PK profiles for every monte carlo sample according to the PK model currently
       ### Selected
       temp_dat <- pk_2cmt_infusion(theta = thetas,
-                                   params = params,
+                                   CLCR=covariates$CLCR, WT=covariates$WT, DIAL=covariates$DIAL,
                                    eta = c(all_etas$eta1[i], all_etas$eta2[i], all_etas$eta3[i]),
                                    dosing_events = dosing_events,
-                                   times=seq(t_from,t_to, by))
+                                   times=times)
       
   
       
@@ -474,7 +572,7 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, data_set, params, t_from
   s <- apply(dat_mc,2,function(x) quantile(x,probs=c(0.05,0.5,0.95)))
   
   ## Data for population PK Plot
-  plot_dat <- data.frame(TIME=seq(t_from, t_to, by=by),CP_min=s[1,],CP=s[2,],CP_max=s[3,], DELTA=(s[3,]-s[1,]))
+  plot_dat <- data.frame(TIME=times,CP_min=s[1,],CP=s[2,],CP_max=s[3,], DELTA=(s[3,]-s[1,]))
   return(list(plot_dat,      # 1
               dat_mc,        # 2
               all_etas,      # 3

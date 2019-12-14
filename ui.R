@@ -11,7 +11,7 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                 actionButton("submit", label = "Analyze Data", icon = icon("chart-bar"), width = NULL),
                                 
                                 br(),br(),
-                                wellPanel("Patient Information",br(), br(),
+                                wellPanel("Patient covariates at baseline",br(), br(),
                                           textInput(inputId="pat_ID", label="Patient ID", value="PAT0001"),
                                           numericInput(inputId="WT", label="Body weight [kg]", value =70),
                                           numericInput(inputId="CRCL", label="Creatinine Clearance [mL/min]", value =120),

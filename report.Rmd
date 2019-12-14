@@ -163,8 +163,7 @@ chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
 
 \blandscape
 
-# **Simulated PK Parameter distributions**
-
+# **Simulated PK Parameter distributions** at baseline
 
 ```{r par_dist, echo=FALSE, warning=FALSE, fig.height = 7, fig.width = 16, fig.align = "center"}
     grid.arrange(app_data$dist_plots[[1]],app_data$dist_plots[[2]],app_data$dist_plots[[3]], nrow=1, ncol=3)
