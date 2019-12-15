@@ -20,6 +20,46 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                 wellPanel("Pathogen Information", br(), br(),
                                           selectInput("choose_pathogen", "Pathogen:", selected=1, GLOB_PATHOGENS),
                                           numericInput(inputId="MIC", label="MIC [mg/L]", value =5)
+                                ),
+                                bsModal("ADD_MODAL", title="Add new Data Entry", trigger="BUT_ADD_ENTRY", size = "medium", 
+                                        
+                                        dateInput(inputId="ADD_DATE", label="Date:", value = today()),
+                                        timeInput(inputId = "ADD_TIME", label = "Time [HH:MM]:", value = Sys.time(), seconds = F),
+                                        
+                                        selectInput("SELECT_TYPE", label="Entry type:", 
+                                                    choices = list("Dosing Event" = 1,
+                                                                   "TDM Measurement" = 2,
+                                                                   "Creatinine Clearance Measurement" = 3,
+                                                                   "Weight Measurement" = 4,
+                                                                   "Dialysis" = 5)
+                                        ),
+                                        conditionalPanel(condition="input.SELECT_TYPE==1",
+                                                         numericInput("ADD_AMT", "Dose [mg]:", min = 0, max = 5000, value = 1000),
+                                                         numericInput("ADD_DUR", "Infusion duration [min]:", min = 0, max = 1440, value = 60)
+                                        ),
+                                        conditionalPanel(condition="input.SELECT_TYPE==2",
+                                                         numericInput("ADD_TDM", "Measured Vancomycin Concentration [mg/L]:", min = 0, max = 200, value = 0)
+                                        ),
+                                        conditionalPanel(condition="input.SELECT_TYPE==3",
+                                                         numericInput("ADD_CLCR", "Creatinine Clearance [mL/min]:", min = 0, max = 180, value = 100)
+                                        ),
+                                        conditionalPanel(condition="input.SELECT_TYPE==4",
+                                                         numericInput("ADD_WT", "Body Weight [kg]:", min = 10, max = 180, value = 70)
+                                        ),
+                                        conditionalPanel(condition="input.SELECT_TYPE==5",
+                                                         selectInput("ADD_DIAL", label="Dialysis:", 
+                                                                     choices = list("End" = 0, "Start" = 1))
+                                        ),
+                                        br(),
+                                        actionButton("ADD_OK", "OK")
+                                ),
+                                bsModal("REM_MODAL", title="Remove Data Entry", trigger="BUT_REM_ENTRY", size = "small", 
+                                        
+                                        
+                                        numericInput("REM_ENT", "Remove Entry No.:", min = 0, max = 5000, value = 1),
+                                        
+                                        br(),
+                                        actionButton("REM_OK", "OK")
                                 )
                               ),
                               
@@ -33,7 +73,9 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                           accept = c(".xlsx", ".xls"),                                     
                                           width = NULL,buttonLabel = "Browse...", 
                                           placeholder = "No file selected"),
-                                h4("Use an Excel File with similar structure (see Table)"),br(),br(),
+                                actionButton("BUT_ADD_ENTRY", "Add Data Entry"),
+                                actionButton("BUT_REM_ENTRY", "Remove Data Entry"),
+                                downloadButton(outputId="downPT", "Download Data"), br(),br(),
                                 wellPanel("Dataset used in the computation",
                                           DT::dataTableOutput("data_set")
                                 )
@@ -119,7 +161,7 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                              numericInput(inputId="mc.iter",     label="Iterations MC", value =1000),
                              numericInput(inputId="mcmc.burn",   label="Burn-in Iterations MCMC", value =200),
                              numericInput(inputId="delta.t",     label="Delta time [h]", value =0.25),
-                             numericInput(inputId="simulate.t",  label="Simulate time [h]", value =0),
+                             numericInput(inputId="simulate.t",  label="Simulate time [h]", value =12),
                              numericInput(inputId="low.target",  label="Target Throughconcentration [mg/L]", value =15),
                              numericInput(inputId="high.target", label="Limit Cmax [mg/L]", value =20)
                     ),
@@ -139,6 +181,7 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                                            a(href="http://www.osc-lab.de/example_dat_2.xlsx", "Get Example Excel File with multiple dosing WITHOUT TDM samples"),br(),
                                                            a(href="http://www.osc-lab.de/example_dat_3.xlsx", "Get Example Excel File with single dosing with TDM samples"),br(),
                                                            a(href="http://www.osc-lab.de/example_dat_4.xlsx", "Get Example Excel File with single dosing WITHOUT TDM samples"),br(),
+                                                           a(href="http://www.osc-lab.de/example_dat_5.xlsx", "Get Example Excel File with time variable covariate"),br(),
                                                            hr(),
                                                            h4("Version history"),
                                                            verbatimTextOutput("vers"))

@@ -10,7 +10,19 @@ shinyServer(function(input, output, session) {
     
     tryCatch({
       
-      temp <- convert_xlsx_to_NMTRAN(read_excel(inFile$datapath))
+      path_info <- read_excel(inFile$datapath, sheet = "PATHOGEN")
+      
+      pat_info <- read_excel(inFile$datapath, sheet = "PATIENT")
+      
+      updateTextInput(session, inputId = "pat_ID", value = pat_info$ID[1])
+      updateNumericInput(session, inputId = "WT", value = as.numeric(pat_info$WT[1]))
+      updateNumericInput(session, inputId = "CRCL", value = as.numeric(pat_info$CRCL[1]))
+      updateCheckboxInput(session, inputId = "has_dialysis", value=pat_info$DIAL[1])
+      
+      updateNumericInput(session, inputId = "MIC", value = as.numeric(path_info$MIC[1]))
+      updateSelectInput(session, inputId = "choose_pathogen", selected = as.numeric(path_info$PATHOGEN[1]))
+      
+      temp <- convert_xlsx_to_NMTRAN(read_excel(inFile$datapath, sheet = "DATA_SET") )
       
       
       
@@ -143,6 +155,11 @@ shinyServer(function(input, output, session) {
   
   observeEvent(input$but.resetApp, {
 
+    resetApp()
+    
+  })
+  
+  resetApp <- function(){
     app_data$times_to_calculate = NULL
     app_data$mcmc_result = NULL
     app_data$mc_result= NULL
@@ -151,8 +168,8 @@ shinyServer(function(input, output, session) {
     app_data$data_set = NULL
     app_data$time_reference = NULL
     app_data$params= c(WT=NA,    
-              CRCL=NA,   
-              DIAL=NA)     
+                       CRCL=NA,   
+                       DIAL=NA)     
     
     app_data$covariates = NULL
     
@@ -186,7 +203,7 @@ shinyServer(function(input, output, session) {
     
     app_data$covariate_plot = NULL
     
-  
+    
     
     updateTextInput(session, inputId = "pat_ID", value = "PAT0001")
     updateNumericInput(session, inputId = "WT", value = 70)
@@ -211,8 +228,7 @@ shinyServer(function(input, output, session) {
     updateTextAreaInput(session, inputId = "report_comment", value="")
     
     updateTabsetPanel(session, inputId = "mainpage", selected = "Enter Patient data")
-    
-  })
+  }
   
   app_data <- reactiveValues(
     
@@ -278,11 +294,9 @@ shinyServer(function(input, output, session) {
   convert_xlsx_to_NMTRAN <- function(data){
     date <- (as.character(data$DATE))
     
-    hour <- NULL
+    hour <- (as.character(data$TIME))
     
-    for(i in 1:length(data$TIME)){
-      hour[i] <- strsplit((as.character(data$TIME[i])), " ")[[1]][2]
-    }
+
     hour_time <- as.POSIXct(paste(date, hour, sep= " "))
     
     
@@ -309,15 +323,15 @@ shinyServer(function(input, output, session) {
     hour_time <- (hour_time-min(hour_time))/3600
 
     conv_data <- data.frame(time=hour_time,
-                            amt = data$AMT,
-                            conc = data$CONC,
+                            amt = as.numeric(data$AMT),
+                            conc = as.numeric(data$CONC),
                             evid = data$EVID,
                             dur = as.numeric(data$DUR)/60,
                             wt = data$WT,
                             crcl = data$CRCL,
                             dial = data$DIAL)
     
-    
+    print(conv_data)
 
     
     return(list(original_data=orig_data,
@@ -336,7 +350,7 @@ shinyServer(function(input, output, session) {
     }
     
     x_min <- as.POSIXct.numeric(min(times)*3600,origin=app_data$time_reference)
-    x_max <- as.POSIXct.numeric(max(times)*3600,origin=app_data$time_reference)
+    x_max <- as.POSIXct.numeric((max(times)+input$simulate.t)*3600,origin=app_data$time_reference)
     
     ## get tdm data from the table
     tdm_data <- data.frame(conc=as.numeric(as.character(app_data$data_set[app_data$data_set$evid==0,]$conc)),
@@ -683,35 +697,9 @@ shinyServer(function(input, output, session) {
     
     if(is.null(app_data$data_set)){
     
-      temp <- convert_xlsx_to_NMTRAN(read_excel("./example_dat.xlsx"))
-      
-      app_data$data_set <- temp$conv_data
-      app_data$user_data_set <- temp$original_data
-      app_data$time_reference <- temp$time_reference
+      app_data$user_data_set <- read_excel("./blank.xlsx")
 
-
-      
-      
-      if(nrow(temp$conv_data[temp$conv_data$evid==0,])>=1){
-        app_data$tdm_samples_available <- TRUE
-      } else {
-        app_data$tdm_samples_available <- FALSE
-      }
-      
-      ii = 12
-      doses = temp$conv_data[temp$conv_data$evid==1,]
-      if(nrow(doses)>1){
-        ii = doses$time[nrow(doses)] - doses$time[nrow(doses)-1]
-      }
-      
-      
-      app_data$last_known_dose <- tail(temp$conv_data[temp$conv_data$evid==1,],1)
-      app_data$last_known_dose_orig <- tail(temp$original_data[temp$original_data$EVID==1,],1)
-      
-      app_data$last_known_dose$ii <- ii
-      app_data$last_known_dose_orig$II <- ii
     }
-
     
     display_data <-app_data$user_data_set
     
@@ -1503,7 +1491,38 @@ shinyServer(function(input, output, session) {
 
   })
   
-  
+  output$downPT <- downloadHandler(
+    filename = function() {
+      paste(input$pat_ID, ".xlsx", sep = "")
+    },
+    content = function(file) {
+      
+      
+      tryCatch({
+        
+        new_xlsx_data <- list("DATA_SET"=app_data$user_data_set,
+                              "PATIENT"=data.frame('ID'=input$pat_ID,
+                                                   'WT'=input$WT,
+                                                   'CRCL'=input$CRCL,
+                                                   'DIAL'=as.numeric(input$has_dialysis)),
+                              "PATHOGEN"=data.frame('PATHOGEN'=input$choose_pathogen,
+                                                    'MIC'=input$MIC))
+        
+        writexl::write_xlsx(new_xlsx_data, file)
+        
+        
+      },
+      error = function(e){
+        showModal(modalDialog(
+          title = "ERROR",
+          HTML(paste("Error while saving Patient!<br>Details:<br><br>",e)),
+          easyClose = TRUE,
+          footer = NULL
+        ))
+        stop(safeError(e))
+      })
+    }
+  )
   
   output$but.download = downloadHandler(
     
@@ -1523,6 +1542,192 @@ shinyServer(function(input, output, session) {
       })
     }
   )
+  
+  observeEvent(input$REM_OK,{
+    
+    if(input$REM_ENT>nrow(app_data$user_data_set)){
+        showModal(modalDialog(
+          title = "ERROR",
+          HTML("Entry not found!"),
+          easyClose = TRUE,
+          footer = NULL
+        ))
+        return()
+    }
+    
+    if(nrow(app_data$user_data_set)>1){  
+      
+      app_data$user_data_set <- app_data$user_data_set[-as.numeric(input$REM_ENT),]
+      
+      new_xlsx_data <- list("DATA_SET"=app_data$user_data_set,
+                            "PATIENT"=data.frame('ID'=input$pat_ID,
+                                                 'WT'=input$WT,
+                                                 'CRCL'=input$CRCL,
+                                                 'DIAL'=as.numeric(input$has_dialysis)),
+                            "PATHOGEN"=data.frame('PATHOGEN'=input$choose_pathogen,
+                                                  'MIC'=input$MIC))
+      
+      writexl::write_xlsx(new_xlsx_data, "./temp.xlsx")
+      temp <- convert_xlsx_to_NMTRAN(read_xlsx("./temp.xlsx"))
+      
+      print(temp$conv_data)
+      
+      app_data$data_set <- temp$conv_data
+      app_data$user_data_set <- temp$original_data
+      app_data$time_reference <- temp$time_reference
+      
+      
+      
+      
+      if(nrow(temp$conv_data[temp$conv_data$evid==0,])>=1){
+        app_data$tdm_samples_available <- TRUE
+      } else {
+        app_data$tdm_samples_available <- FALSE
+      }
+      
+      ii = 12
+      doses = temp$conv_data[temp$conv_data$evid==1,]
+      if(nrow(doses)>1){
+        ii = doses$time[nrow(doses)] - doses$time[nrow(doses)-1]
+      } 
+      
+      
+      app_data$last_known_dose <- tail(temp$conv_data[temp$conv_data$evid==1,],1)
+      app_data$last_known_dose_orig <- tail(temp$original_data[temp$original_data$EVID==1,],1)
+      
+      app_data$last_known_dose$ii <- ii
+      app_data$last_known_dose_orig$II <- ii
+      
+      
+    } else if(nrow(app_data$user_data_set)<=1){
+      resetApp()
+    }
+    toggleModal(session, "REM_MODAL", toggle = "close")
+  })
+  
+  observeEvent(input$ADD_OK,{
+    
+    ## Get Entry type
+    new_date = as.character(input$ADD_DATE)
+    new_time = (strsplit((as.character(input$ADD_TIME)), " ")[[1]][2])
+
+    
+    if(input$SELECT_TYPE==1) { ## New Dose
+
+      new_entry = data.frame('DATE'=new_date,
+                    'TIME'=new_time,
+                    'AMT'=input$ADD_AMT,
+                    'CONC'=".",
+                    'EVID'=1,
+                    'DUR'=input$ADD_DUR,
+                    'WT'=".",
+                    'CRCL'=".",
+                    'DIAL'=".")
+      
+      print(new_entry)
+    } else if(input$SELECT_TYPE==2) { ## TDM Measurement
+      new_entry = data.frame('DATE'=new_date,
+                    'TIME'=new_time,
+                    'AMT'=".",
+                    'CONC'=input$ADD_TDM,
+                    'EVID'=0,
+                    'DUR'=".",
+                    'WT'=".",
+                    'CRCL'=".",
+                    'DIAL'=".")
+    } else if(input$SELECT_TYPE==3) { ## CLCR Entry
+      new_entry = data.frame('DATE'=new_date,
+                    'TIME'=new_time,
+                    'AMT'=".",
+                    'CONC'=".",
+                    'EVID'=2,
+                    'DUR'=".",
+                    'WT'=".",
+                    'CRCL'=input$ADD_CLCR,
+                    'DIAL'=".")
+    } else if(input$SELECT_TYPE==4) { ## WT Measurement
+      new_entry = data.frame('DATE'=new_date,
+                    'TIME'=new_time,
+                    'AMT'=".",
+                    'CONC'=".",
+                    'EVID'=2,
+                    'DUR'=".",
+                    'WT'=input$ADD_WT,
+                    'CRCL'=".",
+                    'DIAL'=".")
+    } else if(input$SELECT_TYPE==5){ ## DIAL Entry
+      new_entry = data.frame('DATE'=new_date,
+                    'TIME'=new_time,
+                    'AMT'=".",
+                    'CONC'=".",
+                    'EVID'=2,
+                    'DUR'=".",
+                    'WT'=".",
+                    'CRCL'=".",
+                    'DIAL'=as.numeric(input$ADD_DIAL))
+    }
+     
+    print(app_data$user_data_set)
+     
+    if(nrow(app_data$user_data_set)>0){  
+      app_data$user_data_set$DATE <- as.character(app_data$user_data_set$DATE )
+      app_data$user_data_set$TIME <- as.character(app_data$user_data_set$TIME )
+      app_data$user_data_set$CONC <- as.character(app_data$user_data_set$CONC )
+      app_data$user_data_set$DUR <- as.character(app_data$user_data_set$DUR )
+      app_data$user_data_set$WT <- as.character(app_data$user_data_set$WT )
+      app_data$user_data_set$CRCL <- as.character(app_data$user_data_set$CRCL )
+      app_data$user_data_set$DIAL <- as.character(app_data$user_data_set$DIAL )
+      app_data$user_data_set <- rbind(app_data$user_data_set, new_entry)
+      
+      app_data$user_data_set <- app_data$user_data_set[with(app_data$user_data_set, order(DATE, TIME)),]
+      
+    } else {
+      app_data$user_data_set <- new_entry
+    }
+    
+    print(app_data$user_data_set)
+    
+    new_xlsx_data <- list("DATA_SET"=app_data$user_data_set,
+                          "PATIENT"=data.frame('ID'=input$pat_ID,
+                                               'WT'=input$WT,
+                                               'CRCL'=input$CRCL,
+                                               'DIAL'=as.numeric(input$has_dialysis)),
+                          "PATHOGEN"=data.frame('PATHOGEN'=input$choose_pathogen,
+                                                'MIC'=input$MIC))
+
+    writexl::write_xlsx(new_xlsx_data, "./temp.xlsx")
+    temp <- convert_xlsx_to_NMTRAN(read_xlsx("./temp.xlsx", sheet="DATA_SET"))
+    
+    print(temp$conv_data)
+    
+    app_data$data_set <- temp$conv_data
+    app_data$user_data_set <- temp$original_data
+    app_data$time_reference <- temp$time_reference
+    
+    
+    
+    
+    if(nrow(temp$conv_data[temp$conv_data$evid==0,])>=1){
+      app_data$tdm_samples_available <- TRUE
+    } else {
+      app_data$tdm_samples_available <- FALSE
+    }
+    
+    ii = 12
+    doses = temp$conv_data[temp$conv_data$evid==1,]
+    if(nrow(doses)>1){
+      ii = doses$time[nrow(doses)] - doses$time[nrow(doses)-1]
+    }
+    
+    
+    app_data$last_known_dose <- tail(temp$conv_data[temp$conv_data$evid==1,],1)
+    app_data$last_known_dose_orig <- tail(temp$original_data[temp$original_data$EVID==1,],1)
+    
+    app_data$last_known_dose$ii <- ii
+    app_data$last_known_dose_orig$II <- ii
+    
+    toggleModal(session, "ADD_MODAL", toggle = "close")
+    })
 
   
 })
