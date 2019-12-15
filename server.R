@@ -1031,6 +1031,16 @@ shinyServer(function(input, output, session) {
   })
   
   observeEvent(input$submit, {
+    
+    if(is.null(app_data$data_set)){
+      showModal(modalDialog(
+        title = "ERROR",
+        HTML("No data entry present!"),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+      return()
+    }
                
     app_data$step_one_completed = T
     
@@ -1051,6 +1061,8 @@ shinyServer(function(input, output, session) {
       current_etas <- app_data$mc_result[[3]]
     }
     
+    
+    current_etas <- tail(current_etas, (trunc(nrow(current_etas)/10)) )
     
     obj_fun_all <- function(par, data_set, N) {
       
@@ -1368,10 +1380,10 @@ shinyServer(function(input, output, session) {
     if(input$adapt.dur < 60){
       showModal(modalDialog(
         title = "CAVE",
-        HTML(paste("<B>Infusion duratin should exceed 60 minutes! </B><BR>", 
+        HTML(paste("<B>Infusion duration should exceed 60 minutes! </B><BR>", 
                    "Risk of Red-Man-Syndrome!", 
                    "<BR>",
-                   "See: <a href=\"https://www.ncbi.nlm.nih.gov/books/NBK482506/\"> Red Man Syndrome</a>")),
+                   "See: <a href=\"https://www.ncbi.nlm.nih.gov/books/NBK482506/\" target=\"_blank\"> Red Man Syndrome</a>")),
         easyClose = TRUE,
         footer = NULL
       ))
