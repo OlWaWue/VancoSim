@@ -30,7 +30,7 @@ date: "`r format(Sys.time(), '%d.%B %Y')`"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# **Patient characteristics**
+# **Patient characteristics at baseline**
 
   
 Patient ID: **`r input$pat_ID`** 
@@ -73,13 +73,28 @@ MIC: **`r input$MIC`** mg/L
 "Infusion Duration should not fall below 60 min. CAVE: Red-Man-Syndrome!"
 } ` 
 
+\newpage
+
 ## **Recommended Dosing strategy**
 
-Dose: **`r input$adapt.dose`** mg
 
-Interdose Interval: **`r input$adapt.ii`** h
+`r if(app_data$forecast_advanced){
+tmp <- app_data$user_forecast_data_set
 
-Infusion duration: **`r input$adapt.dur`** min
+colnames(tmp) <- c('Date', 'Time', 'Dose [mg]', 'Infusion duration [min]')
+kable(tmp, format = "latex")  %>%
+    kable_styling(position = "left")
+} else {
+
+tmp <- data.frame('Interdose Interval [h]'=input$adapt.ii,
+                 'Dose [mg]'=input$adapt.dose,
+                 'Infusion duration [min]'=input$adapt.dur)
+colnames(tmp) <- c('Interdose Interval [h]', 'Dose [mg]', 'Infusion duration [min]')              
+kable(tmp, format = "latex")  %>%
+    kable_styling(position = "left")
+} ` 
+
+
 
 \newpage
 

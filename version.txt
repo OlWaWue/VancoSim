@@ -4,6 +4,8 @@ Version 0.0.3 Alpha - 15.12.2019
 Dataset creation, modification and saving 
 implemented
 
+Added advanced dosing regimen design
+
 Version 0.0.2 Alpha - 14.12.2019
 =================================================
 

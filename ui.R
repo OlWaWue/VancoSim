@@ -102,19 +102,50 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                             sidebarLayout(
                               sidebarPanel(
                                 actionButton("but.report", label = "Continue", icon = icon("file-alt"), width = NULL),br(),br(),
-                                numericInput(inputId="adapt.dose", label="New Dose [mg]", value =1000, step=100, min=0),
-                                numericInput(inputId="adapt.ii", label="New Interdose Interval [h]", value = 12, step=1, min = 6),
-                                numericInput(inputId="adapt.dur", label="New Duration of Infusion [min]", value = 60, step=10, min=10),
-                                numericInput(inputId="adapt.n", label="Number of Dosing Events to simulate", value = 5, step=1, min=3),
+                                selectInput(inputId="ADV_FORECAST", label = "Level:", choices = list("Simple"=1,
+                                                                                                     "Advanced"=2)),
+                                conditionalPanel(condition="input.ADV_FORECAST==1",
+                                              numericInput(inputId="adapt.dose", label="New Dose [mg]", value =1000, step=100, min=0),
+                                              numericInput(inputId="adapt.ii", label="New Interdose Interval [h]", value = 12, step=1, min = 6),
+                                              numericInput(inputId="adapt.dur", label="New Duration of Infusion [min]", value = 60, step=10, min=10),
+                                              numericInput(inputId="adapt.n", label="Number of Dosing Events to simulate", value = 5, step=1, min=3)
+                                  ),
+                                conditionalPanel(condition="input.ADV_FORECAST==2",
+                                                 actionButton("BUT_ADD_FORE", "Add Simulation Entry", icon = icon("plus-square")),br(),br(),
+                                                 actionButton("BUT_REM_FORE", "Remove Simulation Entry", icon = icon("minus-square")),br(),br(),
+                                                 dataTableOutput(outputId="DT_FORE")
+                                ),
                                 actionButton("but.reset", label = "Reset to last known dose", icon = icon("undo"), width = NULL),br(),br(),
-                                actionButton("but.refresh", label = "Refresh Simulation", icon = icon("refresh"), width = NULL)
+                                actionButton("but.refresh", label = "Refresh Simulation", icon = icon("refresh"), width = NULL),
+                                bsModal("ADD_FORE_MODAL", title="Add new Simulation Entry", trigger="BUT_ADD_FORE", size = "small", 
+                                        dateInput(inputId="ADD_FORE_DATE", label="Date:", value = today()),
+                                        timeInput(inputId = "ADD_FORE_TIME", label = "Time [HH:MM]:", value = Sys.time(), seconds = F),
+                                        numericInput("ADD_FORE_AMT", "Dose [mg]:", min = 0, max = 5000, value = 1000),
+                                        numericInput("ADD_FORE_DUR", "Infusion duration [min]:", min = 0, max = 1440, value = 60),
+                                        
+                                        br(),
+                                        actionButton("ADD_FORE_OK", "OK")
+                                        
+                                        
+                                        
+                                ),
+                                bsModal("REM_FORE_MODAL", title="Remove Simulation Entry", trigger="BUT_REM_FORE", size = "small", 
+                                        
+                                        
+                                        numericInput("REM_FORE", "Remove Entry No.:", min = 0, max = 5000, value = 1),
+                                        
+                                        br(),
+                                        actionButton("REM_FORE_OK", "OK")
+                                )
                               ),
                               mainPanel(
                                 plotOutput("adapted_pkPlot", height = 600,
                                            brush=brushOpts(id="pk_adapt_brush"),
                                            dblclick="pk_adapt_doubleclick")
                               )
-                            )  
+                              
+                          
+                        )
                    ),
                    tabPanel("Clinical Report",htmlOutput("info.report"),hr(),
                             

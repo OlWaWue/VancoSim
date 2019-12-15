@@ -173,6 +173,10 @@ shinyServer(function(input, output, session) {
     
     app_data$covariates = NULL
     
+    app_data$forecast_data_set = NULL
+    app_data$user_forecast_data_set = NULL
+    app_data$forecast_advanced = F
+    
     app_data$step_one_completed = FALSE
     app_data$step_two_completed = FALSE 
     app_data$step_three_completed = FALSE 
@@ -251,6 +255,10 @@ shinyServer(function(input, output, session) {
     step_one_completed = FALSE, 
     step_two_completed = FALSE, 
     step_three_completed = FALSE, 
+    
+    forecast_data_set = NULL,
+    user_forecast_data_set = NULL,
+    forecast_advanced = F,
     
     pk_plots = NULL,
     adapted_pk_plot = NULL,
@@ -707,8 +715,30 @@ shinyServer(function(input, output, session) {
     
   })
   
+  output$DT_FORE <- DT::renderDataTable({
+    
+
+    
+    if(is.null(app_data$user_forecast_data_set)){
+      
+      app_data$user_forecast_data_set <- read_excel("./blank_forecast.xlsx")
+      
+    }
+    
+    display_data <-app_data$user_forecast_data_set
+    
+    display_data
+    
+    
+  })
+  
   output$cov_plot <- renderPlot({
     chain = as.numeric(input$select_chain)
+    
+    if(is.null(app_data$mcmc_result)){
+      return()
+    }
+    
     
     ## Show correlation matrix - the lazy way
     if(app_data$tdm_samples_available){
@@ -719,6 +749,11 @@ shinyServer(function(input, output, session) {
   
   output$pop_cov_plot <- renderPlot({
     ## Show correlation matrix - the lazy way
+    
+    if(is.null(app_data$mc_result)){
+      return()
+    }
+    
     chart.Correlation(app_data$mc_result[[3]], histogram=TRUE)
     
   })
@@ -738,6 +773,11 @@ shinyServer(function(input, output, session) {
   
   output$traceplot <- renderPlot({
     chain = as.numeric(input$select_chain)
+    
+    
+    if(is.null(app_data$mcmc_result)){
+      return()
+    }
     
     ## Has to be generalized 
     
@@ -768,11 +808,11 @@ shinyServer(function(input, output, session) {
     
     adapted_dosing_events <- app_data$data_set
     
-    
-    
+
     adapted_dosing_events$time <- as.numeric(as.character(adapted_dosing_events$time))
     adapted_dosing_events$amt <- as.numeric(as.character(adapted_dosing_events$amt))
     adapted_dosing_events$dur <- as.numeric(as.character(adapted_dosing_events$dur))
+    
     
     t <- max(adapted_dosing_events$time)    
     
@@ -806,9 +846,18 @@ shinyServer(function(input, output, session) {
     
  
     
+    if(app_data$forecast_advanced){
+      
+      new_dosing_events <- app_data$forecast_data_set
+      
+      x_min <- as.POSIXct.numeric(min(app_data$forecast_data_set$time)*3600,origin=app_data$time_reference)
+      x_max <- as.POSIXct.numeric(max(app_data$forecast_data_set$time+12)*3600,origin=app_data$time_reference)
+      
+    } else {
+      new_dosing_events <- data.frame(time = time, amt = amt, dur = dur)
+    }
     
     
-    new_dosing_events <- data.frame(time = time, amt = amt, dur = dur)
     
     adapted_dosing_events <- rbind(adapted_dosing_events, new_dosing_events)
     
@@ -824,6 +873,7 @@ shinyServer(function(input, output, session) {
     times <- adapted_dosing_events$time
     
     TIME <- seq(min(times), max(times)+input$adapt.ii, by=input$delta.t)
+    
     
     
     cov <- get_cov_from_dataset(app_data$data_set, TIME)
@@ -1027,6 +1077,14 @@ shinyServer(function(input, output, session) {
     
     paste("<h4>About</h4><h5><BR>daGama - VancoSim is free and open source: at <a href=\"https://github.com/OlWaWue/VancoSim\">GitHub</a></h5>")
     
+  })
+  
+  observeEvent(input$ADV_FORECAST, {
+    if(input$ADV_FORECAST == 2){
+      app_data$forecast_advanced = T
+    } else {
+      app_data$forecast_advanced = F
+    }
   })
   
   observeEvent(input$submit, {
@@ -1480,6 +1538,8 @@ shinyServer(function(input, output, session) {
     
     app_data$step_three_completed = T
     
+    updateAdapted_pk_plot()
+    
     updateTabsetPanel(session, inputId = "mainpage", selected = "Clinical Report")
     
   })
@@ -1505,6 +1565,41 @@ shinyServer(function(input, output, session) {
       }
     }
 
+  })
+  
+  
+  observe({
+    if (req(input$mainpage) == "PK Plots"){
+      if(!(app_data$step_one_completed)){
+        showModal(modalDialog(
+          title = "Error",
+          HTML(paste("<B>No data submitted! </B><BR>", 
+                     "Please submit data")), 
+          
+          easyClose = TRUE,
+          footer = NULL
+        ))
+        updateTabsetPanel(session, inputId = "mainpage", selected = "Enter Patient data")
+      }
+    }
+    
+  })
+  
+  observe({
+    if (req(input$mainpage) == "Dose Adaptation"){
+      if(!(app_data$step_one_completed & app_data$step_two_completed)){
+        showModal(modalDialog(
+          title = "Error",
+          HTML(paste("<B>Not all three stages have been completed! </B><BR>", 
+                     "Please submit and analyze data prior to dose adaptation")), 
+          
+          easyClose = TRUE,
+          footer = NULL
+        ))
+        updateTabsetPanel(session, inputId = "mainpage", selected = "Enter Patient data")
+      }
+    }
+    
   })
   
   output$downPT <- downloadHandler(
@@ -1558,6 +1653,107 @@ shinyServer(function(input, output, session) {
       })
     }
   )
+  
+  observeEvent(input$REM_FORE_OK,{
+    
+    if(input$REM_FORE>nrow(app_data$user_forecast_data_set)){
+      showModal(modalDialog(
+        title = "ERROR",
+        HTML("Entry not found!"),
+        easyClose = TRUE,
+        footer = NULL
+      ))
+      return()
+    }
+    
+    if(nrow(app_data$user_forecast_data_set)>1){  
+      
+      app_data$user_forecast_data_set <- app_data$user_forecast_data_set[-as.numeric(input$REM_FORE),]
+      app_data$user_forecast_data_set <- app_data$user_forecast_data_set[with(app_data$user_forecast_data_set, order(DATE, TIME)),]
+
+    } else if(nrow(app_data$user_forecast_data_set)<=1){
+      app_data$user_forecast_data_set <- read_excel("./blank_forecast.xlsx")
+    }
+    
+    
+    
+    
+    if(nrow(app_data$user_forecast_data_set)>=1){
+      fore_data_set <- data.frame()
+      for(i in 1:nrow(app_data$user_forecast_data_set)){
+        cur_date <- app_data$user_forecast_data_set$DATE[i]
+        cur_time <- app_data$user_forecast_data_set$TIME[i]
+        cur_date_time <- as.POSIXlt.character(paste(cur_date, cur_time, ""))
+        
+        cur_time <- (as.numeric(cur_date_time)-as.numeric(app_data$time_reference))/3600
+        
+       
+        
+        fore_data_set <- rbind(fore_data_set, c('time'=cur_time,
+                                                'amt'=as.numeric(app_data$user_forecast_data_set$AMT[i]),
+                                                'dur'=as.numeric(app_data$user_forecast_data_set$DUR[i])/60))
+        
+      }
+      colnames(fore_data_set) <- c('time', 'amt', 'dur')
+      
+      
+      
+      app_data$forecast_data_set <- fore_data_set
+    }
+    
+    
+    toggleModal(session, "REM_FORE_MODAL", toggle = "close")
+  })
+  
+  observeEvent(input$ADD_FORE_OK,{
+    
+    ## Get Entry type
+    new_date = as.character(input$ADD_FORE_DATE)
+    new_time = (strsplit((as.character(input$ADD_FORE_TIME)), " ")[[1]][2])
+
+    new_entry = data.frame('DATE'=new_date,
+                           'TIME'=new_time,
+                           'AMT'=input$ADD_FORE_AMT,
+                           'DUR'=input$ADD_FORE_DUR)
+
+    
+    
+    if(nrow(app_data$user_forecast_data_set)>0){  
+      app_data$user_forecast_data_set$DATE <- as.character(app_data$user_forecast_data_set$DATE )
+      app_data$user_forecast_data_set$TIME <- as.character(app_data$user_forecast_data_set$TIME )
+      app_data$user_forecast_data_set$DUR <- as.character(app_data$user_forecast_data_set$DUR )
+
+      app_data$user_forecast_data_set <- rbind(app_data$user_forecast_data_set, new_entry)
+      
+      app_data$user_forecast_data_set <- app_data$user_forecast_data_set[with(app_data$user_forecast_data_set, order(DATE, TIME)),]
+      
+    } else {
+      app_data$user_forecast_data_set <- new_entry
+    }
+
+    if(nrow(app_data$user_forecast_data_set)>=1){
+      fore_data_set <- data.frame()
+      for(i in 1:nrow(app_data$user_forecast_data_set)){
+        cur_date <- app_data$user_forecast_data_set$DATE[i]
+        cur_time <- app_data$user_forecast_data_set$TIME[i]
+        cur_date_time <- as.POSIXlt.character(paste(cur_date, cur_time, ""))
+        
+ 
+        cur_time <- (as.numeric(cur_date_time)-as.numeric(app_data$time_reference))/3600
+        
+        fore_data_set <- rbind(fore_data_set, c('time'=cur_time,
+                                                'amt'=as.numeric(app_data$user_forecast_data_set$AMT[i]),
+                                                'dur'=as.numeric(app_data$user_forecast_data_set$DUR[i])/60))
+        
+      }
+      colnames(fore_data_set) <- c('time', 'amt', 'dur')
+      
+      
+      app_data$forecast_data_set <- fore_data_set
+    }
+    
+    toggleModal(session, "ADD_FORE_MODAL", toggle = "close")
+  })
   
   observeEvent(input$REM_OK,{
     
