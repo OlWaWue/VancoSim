@@ -331,7 +331,6 @@ shinyServer(function(input, output, session) {
                             crcl = data$CRCL,
                             dial = data$DIAL)
     
-    print(conv_data)
 
     
     return(list(original_data=orig_data,
@@ -963,7 +962,7 @@ shinyServer(function(input, output, session) {
   output$info <- renderText({
     
     
-    paste("<h4>1. Please enter below:</h4><h5><BR>Patient covariates, dosing and available TDM data. Then, click the <B>\"Analyze Data\"</B> Button.</h5>")
+    paste("<h4>1. Please enter below:</h4><h5><BR>Patient covariates, dosing and if available TDM data. Then, click the <B>\"Analyze Data\"</B> Button.</h5>")
 
   })
   
@@ -1128,10 +1127,12 @@ shinyServer(function(input, output, session) {
         }
       })
       
-      above <- (length(cmins_adapt[cmins_adapt>input$high.target])/length(cmins_adapt)*100)
-      below <- (length(cmins_adapt[cmins_adapt<input$low.target])/length(cmins_adapt)*100)
+
+      ipre <- mean(cmins_adapt)
       
-      return((above+below))
+      ther_tar <- (input$high.target+input$low.target)/2
+      
+      return((ther_tar-ipre)^2)
     }
     
     obj_fun_dose <- function(par, II, DUR, data_set, N) {
@@ -1197,10 +1198,11 @@ shinyServer(function(input, output, session) {
         }
       })
       
-      above <- (length(cmins_adapt[cmins_adapt>input$high.target])/length(cmins_adapt)*100)
-      below <- (length(cmins_adapt[cmins_adapt<input$low.target])/length(cmins_adapt)*100)
-
-      return((above+below))
+      ipre <- mean(cmins_adapt)
+      
+      ther_tar <- (input$high.target+input$low.target)/2
+      
+      return((ther_tar-ipre)^2)
     }
     obj_fun_ii <- function(par, AMT, DUR, data_set, N) {
       
@@ -1264,10 +1266,11 @@ shinyServer(function(input, output, session) {
         }
       })
       
-      above <- (length(cmins_adapt[cmins_adapt>input$high.target])/length(cmins_adapt)*100)
-      below <- (length(cmins_adapt[cmins_adapt<input$low.target])/length(cmins_adapt)*100)
+      ipre <- mean(cmins_adapt)
       
-      return((above+below))
+      ther_tar <- (input$high.target+input$low.target)/2
+      
+      return((ther_tar-ipre)^2)
     }
     
     obj_fun_dur <- function(par, AMT, II, data_set, N) {
@@ -1332,10 +1335,11 @@ shinyServer(function(input, output, session) {
         }
       })
       
-      above <- (length(cmins_adapt[cmins_adapt>input$high.target])/length(cmins_adapt)*100)
-      below <- (length(cmins_adapt[cmins_adapt<input$low.target])/length(cmins_adapt)*100)
+      ipre <- mean(cmins_adapt)
       
-      return((above+below))
+      ther_tar <- (input$high.target+input$low.target)/2
+      
+      return((ther_tar-ipre)^2)
     }
     
     if(input$adapt.what==4) {
@@ -1581,8 +1585,7 @@ shinyServer(function(input, output, session) {
       
       writexl::write_xlsx(new_xlsx_data, "./temp.xlsx")
       temp <- convert_xlsx_to_NMTRAN(read_xlsx("./temp.xlsx"))
-      
-      print(temp$conv_data)
+
       
       app_data$data_set <- temp$conv_data
       app_data$user_data_set <- temp$original_data
@@ -1636,7 +1639,6 @@ shinyServer(function(input, output, session) {
                     'CRCL'=".",
                     'DIAL'=".")
       
-      print(new_entry)
     } else if(input$SELECT_TYPE==2) { ## TDM Measurement
       new_entry = data.frame('DATE'=new_date,
                     'TIME'=new_time,
@@ -1679,7 +1681,6 @@ shinyServer(function(input, output, session) {
                     'DIAL'=as.numeric(input$ADD_DIAL))
     }
      
-    print(app_data$user_data_set)
      
     if(nrow(app_data$user_data_set)>0){  
       app_data$user_data_set$DATE <- as.character(app_data$user_data_set$DATE )
@@ -1697,7 +1698,6 @@ shinyServer(function(input, output, session) {
       app_data$user_data_set <- new_entry
     }
     
-    print(app_data$user_data_set)
     
     new_xlsx_data <- list("DATA_SET"=app_data$user_data_set,
                           "PATIENT"=data.frame('ID'=input$pat_ID,
@@ -1709,8 +1709,6 @@ shinyServer(function(input, output, session) {
 
     writexl::write_xlsx(new_xlsx_data, "./temp.xlsx")
     temp <- convert_xlsx_to_NMTRAN(read_xlsx("./temp.xlsx", sheet="DATA_SET"))
-    
-    print(temp$conv_data)
     
     app_data$data_set <- temp$conv_data
     app_data$user_data_set <- temp$original_data
