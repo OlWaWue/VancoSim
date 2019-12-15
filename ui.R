@@ -73,8 +73,8 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                           accept = c(".xlsx", ".xls"),                                     
                                           width = NULL,buttonLabel = "Browse...", 
                                           placeholder = "No file selected"),
-                                actionButton("BUT_ADD_ENTRY", "Add Data Entry"),
-                                actionButton("BUT_REM_ENTRY", "Remove Data Entry"),
+                                actionButton("BUT_ADD_ENTRY", "Add Data Entry", icon = icon("plus-square")),
+                                actionButton("BUT_REM_ENTRY", "Remove Data Entry", icon = icon("minus-square")),
                                 downloadButton(outputId="downPT", "Download Data"), br(),br(),
                                 wellPanel("Dataset used in the computation",
                                           DT::dataTableOutput("data_set")
