@@ -1,6 +1,7 @@
 library('rjags')
 library('ggplot2')
 library('readxl')
+library('writexl')
 library('shiny')
 library('shinyjs')
 library('shinyBS')

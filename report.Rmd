@@ -66,7 +66,7 @@ MIC: **`r input$MIC`** mg/L
 `r input$report_comment`
 
 `r if(input$additional_tdm){
-"Additional TDM samples should be obtained"
+"Additional TDM sample should be obtained (see Graphic for further information)"
 } ` 
 
 `r if(input$add_dur_info){
@@ -104,7 +104,7 @@ kable(tmp, format = "latex")  %>%
 
 ``` {r recomm, echo=FALSE, warning=FALSE, fig.height = 7, fig.width = 12, fig.align = "center"}
 
-  app_data$adapted_pk_plot
+  app_data$adapted_pk_plot_withTDM
 
 ```
 

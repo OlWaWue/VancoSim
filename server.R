@@ -181,6 +181,10 @@ shinyServer(function(input, output, session) {
     app_data$step_two_completed = FALSE 
     app_data$step_three_completed = FALSE 
     
+    app_data$TDM_recommendation = NULL
+
+    app_data$adapted_pk_plot_withTDM = NULL
+    
     app_data$pk_plots = NULL
     app_data$adapted_pk_plot = NULL
     app_data$dist_plots = NULL
@@ -260,8 +264,11 @@ shinyServer(function(input, output, session) {
     user_forecast_data_set = NULL,
     forecast_advanced = F,
     
+    TDM_recommendation = NULL,
+    
     pk_plots = NULL,
     adapted_pk_plot = NULL,
+    adapted_pk_plot_withTDM = NULL,
     dist_plots = NULL,
     tdm_samples_available =T,
     last_known_dose = NULL,
@@ -669,6 +676,16 @@ shinyServer(function(input, output, session) {
     
   })
   
+  output$adapted_pkPlot_withTDM <- renderPlot({
+    
+    if(is.null(app_data$adapted_pk_plot_withTDM)){
+      return()
+    }
+
+    app_data$adapted_pk_plot_withTDM
+    
+  })
+  
   output$pkPlot <- renderPlot({
     
     if(is.null(app_data$pk_plots)){
@@ -848,6 +865,16 @@ shinyServer(function(input, output, session) {
     
     if(app_data$forecast_advanced){
       
+      if(nrow(app_data$user_forecast_data_set)==0){
+        showModal(modalDialog(
+          title = "ERROR",
+          HTML("No Entries to simulate not found!"),
+          easyClose = TRUE,
+          footer = NULL
+        ))
+        return()
+      }
+      
       new_dosing_events <- app_data$forecast_data_set
       
       x_min <- as.POSIXct.numeric(min(app_data$forecast_data_set$time)*3600,origin=app_data$time_reference)
@@ -1026,7 +1053,7 @@ shinyServer(function(input, output, session) {
   output$info.adapt <- renderText({
     
     
-    paste("<h4>3. Dose Adaptation</h4><h5><BR>Explore and modify dose adaptation. Then, click the <B>\"Continue\"</B> Button to produce a PDF report.</h5>")
+    paste("<h4>3. Dose Adaptation</h4><h5><BR>Explore and modify dose adaptation. click the <B>\"Refresh Simulation\"</B> Button to inspect the result. Then, click the <B>\"Continue\"</B> Button to produce a PDF report.</h5>")
     
   })
   
@@ -1474,7 +1501,7 @@ shinyServer(function(input, output, session) {
     reset_adapt_to_last_known_dose()
     
     delay(1000,{
-          updateAdapted_pk_plot()
+        #  updateAdapted_pk_plot()
           updateTabsetPanel(session, inputId = "mainpage", selected = "Dose Adaptation")
       }
     )
@@ -1521,16 +1548,57 @@ shinyServer(function(input, output, session) {
       app_data$user_x_zoom_adapt<- as.POSIXct.numeric(app_data$user_x_zoom_adapt,origin=as.POSIXct(strptime("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")))
 
       
+      app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + coord_cartesian(ylim=app_data$user_y_zoom_adapt, xlim=app_data$user_x_zoom_adapt, expand = F)
       app_data$adapted_pk_plot <- app_data$adapted_pk_plot + coord_cartesian(ylim=app_data$user_y_zoom_adapt, xlim=app_data$user_x_zoom_adapt, expand = F)
       
       session$resetBrush("pk_adapt_brush")
       
     } else {
-
+      app_data$user_y_zoom_adapt <- NULL
+      app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + coord_cartesian(ylim=app_data$standard_y_zoom_adapt, xlim=app_data$standard_x_zoom_adapt, expand = F)
       app_data$adapted_pk_plot <- app_data$adapted_pk_plot + coord_cartesian(ylim=app_data$standard_y_zoom_adapt, xlim=app_data$standard_x_zoom_adapt, expand = F)
-
     }
     
+    if(!is.null(app_data$TDM_recommendation)) {
+      app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot
+        if(is.null(app_data$user_y_zoom_adapt)) {
+          app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + geom_vline(aes(xintercept=app_data$TDM_recommendation), size=2, colour="blue", alpha=0.25)+
+            annotate("text", x=app_data$TDM_recommendation, y=(max(app_data$standard_y_zoom_adapt)/2), label=paste("Take TDM sample here:", "\n", as.character(app_data$TDM_recommendation, format = "%a %d.%m.%Y\n%H:%M", tz = "CET") ), size=6)
+        } else {
+          app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + geom_vline(aes(xintercept=app_data$TDM_recommendation), size=2, colour="blue", alpha=0.25)+
+            annotate("text", x=app_data$TDM_recommendation, y=(max(app_data$user_y_zoom_adapt)/2), label=paste("Take TDM sample here:", "\n", as.character(app_data$TDM_recommendation, format = "%a %d.%m.%Y\n%H:%M", tz = "CET") ), size=6)
+        }
+    }
+    
+  })
+  
+  observeEvent(input$pk_adapt_doubleclick_withTDM, {
+    if(!is.null(input$pk_adapt_brush_withTDM)){
+      app_data$user_y_zoom_adapt <- c(input$pk_adapt_brush_withTDM$ymin, input$pk_adapt_brush_withTDM$ymax)
+      app_data$user_x_zoom_adapt <- c(input$pk_adapt_brush_withTDM$xmin, input$pk_adapt_brush_withTDM$xmax)
+      
+      app_data$user_x_zoom_adapt<- as.POSIXct.numeric(app_data$user_x_zoom_adapt,origin=as.POSIXct(strptime("1970-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")))
+      
+      app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + coord_cartesian(ylim=app_data$user_y_zoom_adapt, xlim=app_data$user_x_zoom_adapt, expand = F)
+      app_data$adapted_pk_plot <- app_data$adapted_pk_plot + coord_cartesian(ylim=app_data$user_y_zoom_adapt, xlim=app_data$user_x_zoom_adapt, expand = F)
+      
+      session$resetBrush("pk_adapt_brush_withTDM")
+      
+    } else {
+      app_data$user_y_zoom_adapt <- NULL
+      app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + coord_cartesian(ylim=app_data$standard_y_zoom_adapt, xlim=app_data$standard_x_zoom_adapt, expand = F)
+      app_data$adapted_pk_plot <- app_data$adapted_pk_plot + coord_cartesian(ylim=app_data$standard_y_zoom_adapt, xlim=app_data$standard_x_zoom_adapt, expand = F)
+    }
+    if(!is.null(app_data$TDM_recommendation)) {
+      app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot
+      if(is.null(app_data$user_y_zoom_adapt)) {
+        app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + geom_vline(aes(xintercept=app_data$TDM_recommendation), size=2, colour="blue", alpha=0.25)+
+          annotate("text", x=app_data$TDM_recommendation, y=(max(app_data$standard_y_zoom_adapt)/2), label=paste("Take TDM sample here:", "\n", as.character(app_data$TDM_recommendation, format = "%a %d.%m.%Y\n%H:%M", tz = "CET") ), size=6)
+      } else {
+        app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + geom_vline(aes(xintercept=app_data$TDM_recommendation), size=2, colour="blue", alpha=0.25)+
+          annotate("text", x=app_data$TDM_recommendation, y=(max(app_data$user_y_zoom_adapt)/2), label=paste("Take TDM sample here:", "\n", as.character(app_data$TDM_recommendation, format = "%a %d.%m.%Y\n%H:%M", tz = "CET") ), size=6)
+      }
+    }
   })
   
   observeEvent(input$but.report, {
@@ -1539,6 +1607,8 @@ shinyServer(function(input, output, session) {
     app_data$step_three_completed = T
     
     updateAdapted_pk_plot()
+    
+    app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot
     
     updateTabsetPanel(session, inputId = "mainpage", selected = "Clinical Report")
     
@@ -1654,6 +1724,32 @@ shinyServer(function(input, output, session) {
     }
   )
   
+  observeEvent(input$BUT_ADD_TDM, {
+    new_date = as.character(input$ADD_TDM_DATE)
+    new_time = (strsplit((as.character(input$ADD_TDM_TIME)), " ")[[1]][2])
+    
+    app_data$TDM_recommendation <-as.POSIXct(as.POSIXlt.character(paste(new_date, new_time, "")), format = "%a %d.%m.%Y\n%H:%M", tz = "CET")
+    
+    
+    
+    if(is.null(app_data$user_y_zoom_adapt)) {
+      app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + geom_vline(aes(xintercept=app_data$TDM_recommendation), size=2, colour="blue", alpha=0.25)+
+        annotate("text", x=app_data$TDM_recommendation, y=(max(app_data$standard_y_zoom_adapt)/2), label=paste("Take TDM sample here:", "\n", as.character(app_data$TDM_recommendation, format = "%a %d.%m.%Y\n%H:%M", tz = "CET") ), size=6)
+    } else {
+      app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot_withTDM + geom_vline(aes(xintercept=app_data$TDM_recommendation), size=2, colour="blue", alpha=0.25)+
+        annotate("text", x=app_data$TDM_recommendation, y=(max(app_data$user_y_zoom_adapt)/2), label=paste("Take TDM sample here:", "\n", as.character(app_data$TDM_recommendation, format = "%a %d.%m.%Y\n%H:%M", tz = "CET") ), size=6)
+    }
+    
+
+  })
+  
+  observeEvent(input$additional_tdm,{
+    if(!input$additional_tdm){
+      app_data$TDM_recommendation <- NULL
+      app_data$adapted_pk_plot_withTDM <- app_data$adapted_pk_plot
+    }
+  })
+  
   observeEvent(input$REM_FORE_OK,{
     
     if(input$REM_FORE>nrow(app_data$user_forecast_data_set)){
@@ -1670,6 +1766,9 @@ shinyServer(function(input, output, session) {
       
       app_data$user_forecast_data_set <- app_data$user_forecast_data_set[-as.numeric(input$REM_FORE),]
       app_data$user_forecast_data_set <- app_data$user_forecast_data_set[with(app_data$user_forecast_data_set, order(DATE, TIME)),]
+      
+      write_xlsx(app_data$user_forecast_data_set, "./temp_fore.xlsx")
+      app_data$user_forecast_data_set <-(read_xlsx("./temp_fore.xlsx"))
 
     } else if(nrow(app_data$user_forecast_data_set)<=1){
       app_data$user_forecast_data_set <- read_excel("./blank_forecast.xlsx")
@@ -1695,9 +1794,7 @@ shinyServer(function(input, output, session) {
         
       }
       colnames(fore_data_set) <- c('time', 'amt', 'dur')
-      
-      
-      
+
       app_data$forecast_data_set <- fore_data_set
     }
     
@@ -1730,6 +1827,9 @@ shinyServer(function(input, output, session) {
     } else {
       app_data$user_forecast_data_set <- new_entry
     }
+    
+    write_xlsx(app_data$user_forecast_data_set, "./temp_fore.xlsx")
+    app_data$user_forecast_data_set <-(read_xlsx("./temp_fore.xlsx"))
 
     if(nrow(app_data$user_forecast_data_set)>=1){
       fore_data_set <- data.frame()

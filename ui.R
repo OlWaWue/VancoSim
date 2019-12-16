@@ -153,14 +153,21 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                             sidebarLayout(
                               sidebarPanel(
                                 selectInput("choose_recommendation", "Recommendation:", selected=1, GLOB_RECOMMENDATIONS),
-                                
+                                textAreaInput("report_comment", "Additional comment: ", width="100%"),
                                 checkboxInput("additional_tdm", "Recommend additional TDM?", value = F),
+                                conditionalPanel(condition="input.additional_tdm",
+                                                 dateInput(inputId="ADD_TDM_DATE", label="Date:", value = today()),
+                                                 timeInput(inputId = "ADD_TDM_TIME", label = "Time [HH:MM]:", value = Sys.time(), seconds = F),
+                                                 actionButton("BUT_ADD_TDM", "Add TDM Recommendation", icon = icon("plus-square"))
+                                ),
                                 checkboxInput("add_dur_info", "Add note about Infusion duration?", value = F),
                                 downloadButton("but.download", "Download Report"), br(), br(),
                                 actionButton("but.resetApp", label = "Reset Application", icon = icon("undo"), width = NULL)
                               ),
                               mainPanel(
-                                textAreaInput("report_comment", "Additional comment: ", width="100%")
+                                plotOutput("adapted_pkPlot_withTDM", height = 600,
+                                           brush=brushOpts(id="pk_adapt_brush_withTDM"),
+                                           dblclick="pk_adapt_doubleclick_withTDM")
                               )
                             )  
                    ),
@@ -193,8 +200,8 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                              numericInput(inputId="mcmc.burn",   label="Burn-in Iterations MCMC", value =200),
                              numericInput(inputId="delta.t",     label="Delta time [h]", value =0.25),
                              numericInput(inputId="simulate.t",  label="Simulate time [h]", value =12),
-                             numericInput(inputId="low.target",  label="Target Throughconcentration [mg/L]", value =15),
-                             numericInput(inputId="high.target", label="Limit Cmax [mg/L]", value =20)
+                             numericInput(inputId="low.target",  label="Lower Limit Cthrough [mg/L]", value =10),
+                             numericInput(inputId="high.target", label="Upper Limit Cthrough [mg/L]", value =20)
                     ),
                     tabPanel("About", htmlOutput("info.about"),hr(),
                                                      img(src="daGama_logo.png", height = 90, width = 300),
