@@ -950,6 +950,33 @@ shinyServer(function(input, output, session) {
                           s7=s[4,],s8=s[5,],
                           max=s[9,]) # median 
     
+    
+    auc_data_24 <- tail(pk_data, ceiling(24/input$delta.t))
+    
+    auc_data_24$time <- auc_data_24$time - min(auc_data_24$time)
+    
+    auc_temp_low <- NULL
+    auc_temp_median <- NULL
+    auc_temp_high <- NULL
+    
+    for(i in 2:nrow(auc_data_24)){
+      sum_c_low <- auc_data_24$s1[i]+auc_data_24$s1[i-1]
+      sum_c_median <- auc_data_24$max[i]+auc_data_24$max[i-1]
+      sum_c_high <- auc_data_24$s2[i]+auc_data_24$s2[i-1]
+      
+      delta_t <- auc_data_24$time[i]-auc_data_24$time[i-1]
+      
+      auc_temp_low <- c(auc_temp_low, delta_t*sum_c_low/2)
+      auc_temp_median <- c(auc_temp_median, delta_t*sum_c_median/2)
+      auc_temp_high <- c(auc_temp_high, delta_t*sum_c_high/2)
+    }
+    
+    AUC_24 <- c(median=sum(auc_temp_median), lower=sum(auc_temp_low), higher=sum(auc_temp_high))
+
+    
+    middle_of_the_plot <- as.POSIXct.numeric( (as.numeric(x_max)-as.numeric(x_min))/2, origin = x_min)
+    y_max <- max(pk_data$s2)
+    
     pk_data$time <- as.POSIXct.numeric(pk_data$time*3600,origin=app_data$time_reference)
     
     app_data$standard_y_zoom_adapt = c(0, max(pk_data$s2)*1.1)
@@ -958,9 +985,12 @@ shinyServer(function(input, output, session) {
     app_data$user_y_zoom_adapt = c(0, max(pk_data$s2)*1.1)
     app_data$user_x_zoom_adapt = c(x_min, x_max)
     
+
     ## Build raw individual PK plot
     p <- ggplot(pk_data) + 
       geom_hline(aes(yintercept=input$MIC, colour="mic"), linetype=3, size=1) +
+      annotate("text", x=middle_of_the_plot, y=y_max, label=paste("AUC 24h: ", round(AUC_24[1],1) , " (95% PI: ", round(AUC_24[2],1), "-", round(AUC_24[3],1), ") mg x h /L", sep="" ), size=6 ) +
+      annotate("text", x=middle_of_the_plot, y=y_max-(y_max*0.1), label=paste("AUC 24h/MIC: ", round(AUC_24[1]/input$MIC,1) , " (95% PI: ", round(AUC_24[2]/input$MIC,1), "-", round(AUC_24[3]/input$MIC,1), ") (mg x h /L)/(mg/L)", sep="" ), size=6 ) +
       geom_ribbon(aes(ymin=s1, ymax=s2, x=time, fill="s1" ), alpha=0.15) + 
       geom_ribbon(aes(ymin=s3, ymax=s4, x=time, fill="s2" ), alpha=0.15) + 
       geom_ribbon(aes(ymin=s5, ymax=s6, x=time, fill="s3" ), alpha=0.15) + 
