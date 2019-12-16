@@ -19,7 +19,7 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                                 ),
                                 wellPanel("Pathogen Information", br(), br(),
                                           selectInput("choose_pathogen", "Pathogen:", selected=1, GLOB_PATHOGENS),
-                                          numericInput(inputId="MIC", label="MIC [mg/L]", value =5)
+                                          numericInput(inputId="MIC", label="MIC [mg/L]", value =0.85)
                                 ),
                                 bsModal("ADD_MODAL", title="Add new Data Entry", trigger="BUT_ADD_ENTRY", size = "medium", 
                                         
