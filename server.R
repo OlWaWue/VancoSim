@@ -940,7 +940,7 @@ shinyServer(function(input, output, session) {
     })
     
     ## Generate Quantils
-    s <- apply(df_temp,2,function(x) quantile(x,probs=c(0.05, 0.10, 0.15, 0.20, 0.8, 0.85, 0.9, 0.95, 0.5)))
+    s <- apply(df_temp,2,function(x) quantile(x,probs=c(0.025, 0.05, 0.075, 0.10, 0.9, 0.925, 0.95, 0.975, 0.5)))
     
     ## Combine individual PK data and quantils in a data.frame
     pk_data <- data.frame(time=TIME,

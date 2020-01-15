@@ -327,7 +327,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
     })
     
     ## Generate Quantils
-    s <- apply(df_temp,2,function(x) quantile(x,probs=c(0.05, 0.10, 0.15, 0.20, 0.8, 0.85, 0.9, 0.95, 0.5)))
+    s <- apply(df_temp,2,function(x) quantile(x,probs=c(0.025, 0.05, 0.075, 0.10, 0.9, 0.925, 0.95, 0.975, 0.5)))
     
     ## Combine individual PK data and quantils in a data.frame
     pk_data <- data.frame(time=TIME,
@@ -572,7 +572,7 @@ perform_mc_simulation <- function(n.mc, omegas, thetas, data_set, covariates, ti
   dat_mc <- t(dat_mc)
   
   ## Get quantile from monte carlo result
-  s <- apply(dat_mc,2,function(x) quantile(x,probs=c(0.05,0.5,0.95)))
+  s <- apply(dat_mc,2,function(x) quantile(x,probs=c(0.025,0.5,0.975)))
   
   ## Data for population PK Plot
   plot_dat <- data.frame(TIME=times,CP_min=s[1,],CP=s[2,],CP_max=s[3,], DELTA=(s[3,]-s[1,]))
