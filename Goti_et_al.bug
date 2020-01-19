@@ -3,8 +3,8 @@ model
   
   
     
-  eta1~dnorm(0,1/pow(omega[1],2))
-  eta2~dnorm(0,1/pow(omega[2],2))
+  eta1~dnorm(0,1/pow(omega[1], 2))
+  eta2~dnorm(0,1/pow(omega[2], 2))
   eta3~dnorm(0,1/pow(omega[3], 2))
   
   
@@ -46,7 +46,8 @@ model
   
   for(z in 1: length(tdm_times)){
   
-    c[z]~dnorm(mu[tdm_times[z]], 1/pow(sigma,2)) # TODO: simulate proportional error component
+   sig2[z] <- pow((mu[tdm_times[z]] * sigma[1]+ sigma[2]), 2)
+    c[z]~dnorm(mu[tdm_times[z]], 1/sig2[z]) 
   }
 
 }

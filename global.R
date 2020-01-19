@@ -73,7 +73,7 @@ OMEGAS = c(0.398,
            0.816,
            0.571)
 
-SIGMA = c(0.227)
+SIGMA = c(0.227 , 3.4)
 
 ##
  # ---- End definition of global variables
@@ -273,7 +273,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                                         0.816,
                                         0.571),
                              covariates,
-                             TIME = seq(0, 72, by=0.1), SIGMAS, time_reference) {
+                             TIME = seq(0, 72, by=0.1), SIGMAS= c(0.227 , 3.4), time_reference) {
   
   
   

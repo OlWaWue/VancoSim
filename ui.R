@@ -201,7 +201,9 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                              numericInput(inputId="delta.t",     label="Delta time [h]", value =0.25),
                              numericInput(inputId="simulate.t",  label="Simulate time [h]", value =12),
                              numericInput(inputId="low.target",  label="Lower Limit Cthrough [mg/L]", value =10),
-                             numericInput(inputId="high.target", label="Upper Limit Cthrough [mg/L]", value =20)
+                             numericInput(inputId="high.target", label="Upper Limit Cthrough [mg/L]", value =20),
+                             numericInput(inputId="sigma.1", label="Proportional Error [%]", value =22.7),
+                             numericInput(inputId="sigma.2", label="Additive Errog [mg/L]", value =3.4)
                     ),
                     tabPanel("About", htmlOutput("info.about"),hr(),
                                                      img(src="daGama_logo.png", height = 90, width = 300),

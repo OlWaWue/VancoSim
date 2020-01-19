@@ -421,7 +421,7 @@ shinyServer(function(input, output, session) {
                                                 omegas = OMEGAS,
                                                 covariates=cov,
                                                 TIME =temp_time, 
-                                                SIGMAS=3.4, time_reference=app_data$time_reference) 
+                                                SIGMAS=c(input$sigma.1/100, input$sigma.2), time_reference=app_data$time_reference) 
         ind_y_max <- app_data$mcmc_result[[7]]
         ind_y_min <- app_data$mcmc_result[[8]]
         
