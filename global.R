@@ -478,7 +478,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   
   d <- coda.samples(jags,
                     c('eta1', 'eta2', 'eta3'),
-                    n.iter, thin=1)
+                    n.iter*5, thin=5)
   
   # ---- Derive PK plot data from the mcmc samples using the inner function
   

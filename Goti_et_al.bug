@@ -39,15 +39,23 @@ model
                                ) 
       
     }
-    mu[x] <- sum(a[x,])
+    
+    mu[x] <- sum(a[x,]) 
     
     
   }
   
   for(z in 1: length(tdm_times)){
-  
-   sig2[z] <- pow((mu[tdm_times[z]] * sigma[1]+ sigma[2]), 2)
-    c[z]~dnorm(mu[tdm_times[z]], 1/sig2[z]) 
+   
+    eps_prop[z]~dnorm(0, 1/(sigma[1]*sigma[1]))
+    eps_add[z]~dnorm(0, 1/(sigma[2]*sigma[2]))
+    
+    c_hat_pred[z] <- mu[tdm_times[z]] *(1+ eps_prop[z]) + eps_add[z]
+    
+    c_hat[z] <- max(c_hat_pred[z], 1.0E-6)
+    
+    c[z]~dnorm(c_hat[z], tau) 
   }
+  tau~dgamma(0.0001, 0.0001)
 
 }

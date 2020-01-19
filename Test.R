@@ -1,14 +1,16 @@
 library(mrgsolve)
 library(ggplot2)
+library(dplyr)
+library(plyr)
 
 vanc_modl <- mread("Goti_et_al")
 
 
 dosing <- ev(id=1, 
              amt=1000,
-             rate=1000/0.5,
+             rate=1000/1,
              cmt=2,
-             addl=2,
+             addl=0,
              ii=12,
              CrCL=120,
              WT=70,
@@ -22,7 +24,7 @@ sim_res <- vanc_modl %>%
 data <- as.data.frame(sim_res)
 
 
-ggplot(data) + geom_line(aes(x=time, y=IPRED))
+ggplot(data) + geom_line(aes(x=time, y=IPRED)) + geom_point(data=obs, aes(x=time, y=y))
 
 library('rjags')
 
@@ -41,13 +43,99 @@ for(i in 1:length(tdm_times)){
   temp_times <- c(temp_times, which(times == tdm_times[i]))
 }
 
+a <- estimate_etas_empiricalBayes()
+
+
+
+estimate_etas_empiricalBayes <- function(mod = vanc_modl,
+                                         init = c(ETA1=0.1, ETA2=0.1, ETA3=0.1),
+                                         data = dosing,
+                                         obs = data.frame(time=5, y=17)) {
+  
+  ### This is the objective function to be minimized
+  mapbayes <- function(eta, y, d, m){
+    
+    eta <- as.list(eta)
+    names(eta) <- names(init)
+    eta_m <- eta %>% unlist %>% matrix(nrow=1)
+    m %<>% param(eta)
+    
+    out <- m %>%  
+      param(eta) %>%
+      obsonly %>%               #Simulate only for timepoint where tdm was performed
+      zero_re() %>%             #Omega and Sigma Matrices are dropped from the model
+      data_set(d)  %>%          #Data set used to simulate the Data 
+      mrgsim
+    
+    sig2j <- (out$IPRED*(sigma[1,1])+(sigma[2,2]))^2 ## Residual variance
+    sqwres <- log(sig2j) + (1/sig2j)*(y-out$IPRED)^2 ## square sum for -2LL estimate Bauer et al. (2007) AAPSJ E60
+    nOn <- diag(eta_m %*% omega.inv %*% t(eta_m)) ## 
+    return(sum(sqwres)+nOn)                       ## -2LL empirical bayes estimate objective function value, see http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3339294/
+  }
+  
+  
+  #Retrieve omega matrix from model for MAP Bayesian estimation
+  omega <- (omat(mod, make=T))
+  
+  
+  omega <- diag(c((omega[1,1]),(omega[2,2]), (omega[3,3])))
+  #Invert Omega Matrix for Standard Error estimation
+  omega.inv <- solve(omega)
+  
+  sigma <- diag(0.227, 3.4)
+  
+
+  
+  t.obs=obs$time
+  y.obs=obs$y
+  #simulate concentration at time of concentration measurement 
+  #to get a data frame containing information for the fitting process
+  sim <- mod %>% 
+    omat(omega) %>%       #Omega matrix is reset, if it has been deleted from the model earlier
+    data_set(data) %>%
+    carry.out(amt, evid, cmt) %>% #important to carry out EVERY information on dosing and covariates
+    mrgsim(end=-1, add=t.obs) #only simulate for time(s) with an observed concentration
+  
+  #Dataframe used for simulation process
+  sim <- as.data.frame(sim)
+  
+  #Dataframe used for fitting IMPORTANT: drop parameters to be predicted
+  fit_data <- sim %>% select(ID, time, evid, amt, cmt,  IPRED)
+  
+  fit_data
+  #minimize the mapbayes function and save ETAs to fit$par
+  #y= measured concentration(s)
+  #m= model object to be used
+  #d= data.frame containing information on dosing and patient
+  fit <- optim(init, fn=mapbayes, y=y.obs, m=mod, d=fit_data)
+  # save individual etas for the report
+  fit$par
+  est_eta <- fit$par
+  names(est_eta) <- c("ETA1", "ETA2", "ETA3")
+  
+  ret = list(post_etas = est_eta)
+}
+
+
+sim_res <- vanc_modl %>%
+  ev(dosing) %>%
+  param(a$post_etas) %>%
+  zero_re %>%
+  mrgsim(end=72)
+
+data <- as.data.frame(sim_res)
+
+
+ggplot(data) + geom_line(aes(x=time, y=IPRED)) + geom_point(data=obs, aes(x=time, y=y)) + ylim(c(0,69)) + xlim(c(0,24))
+
+
 tdm_data = data.frame(time=tdm_times, conc=c(10, 20))
 
 jags.mod <- jags.model('Goti_et_al.bug',
                   data = list('c' = c(10, 20),
-                              'amt' = c(1000,1000,1000), 
+                              'amt' = c(1000), 
                               'dosing_time' = dosing_time,
-                              't_inf' = c(0.5,0.5,0.5),
+                              't_inf' = c(0.5),
                               'CLCR'=time_dep_cov$ClCr, 
                               'WT'=time_dep_cov$WT, 
                               'DIAL'=time_dep_cov$DIAL,
