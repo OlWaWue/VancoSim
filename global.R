@@ -1,4 +1,4 @@
-library('rjags')
+library("R2jags")
 library('ggplot2')
 library('readxl')
 library('writexl')
@@ -261,7 +261,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                                                   amt=c(100,".",".",100,".","."),
                                                   conc=c(".", 2, 3, ".", 1.5, 0.72),
                                                   evid=c(1, 0, 0, 1, 0, 0)),
-                             n.burn=200, n.iter=1000, 
+                             n.burn=100, n.iter=2600, n.thin = 10, n.chain=4,
                              thetas  = c(4.5,  ## THETA1 -  clearance (L/h)
                                          58.4, ## THETA2 - volume of central compartment (L)
                                          38.4, ## THETA3 - volume of peripheral compartment (L)
@@ -279,13 +279,16 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   
   # --- inner function to generate individual PK plot data
   
-  do_plot <- function(jags_result, nburn=n.burn, time_reference){
+  do_plot <- function(jags_result, time_reference){
     
-    ## Use the fourth chain for the simulation
-    df <- as.data.frame(jags_result[[4]])
+
+    df <- data.frame(eta1=jags_result$BUGSoutput$sims.list$eta1,
+                     eta2=jags_result$BUGSoutput$sims.list$eta2,
+                     eta3=jags_result$BUGSoutput$sims.list$eta3)
+    
     
     ## remove burnin iterations
-    df <- df[-(1:nburn),]
+
     
     mcmc_se <- list()
     
@@ -357,17 +360,18 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   
   # --- Generate MCMC trace plots and distributions for every eta estimated 
   
-  mcmc_diagnosticplots <- function(chain=1, jags_result, nburn = n.burn, omega, colour="red") {
+  mcmc_diagnosticplots <- function(jags_result,  omega, colour="red") {
     
-    df <- as.data.frame(jags_result[[chain]]) ## Dataframe with etas
+    df <- data.frame(eta1=jags_result$BUGSoutput$sims.list$eta1,
+                     eta2=jags_result$BUGSoutput$sims.list$eta2,
+                     eta3=jags_result$BUGSoutput$sims.list$eta3)
     
-    nb.etas <- ncol(jags_result[[chain]]) 
+    nb.etas <- ncol(df) 
     
     niter <- nrow(df)
     
     df$iteration <- (1:niter) 
     
-    df <- df[-(1:nburn),]
     
     
     ## I will never again understand this...
@@ -389,7 +393,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
       dens_prior <- dnorm(x=x_this_eta, mean=0, sd=sqrt(omega[n.et]))
       dens_prior <- data.frame(ETA=x_this_eta, freq=dens_prior)
       
-      current_data <- data.frame(iteration=(nburn+1):niter,eta=df[,n.et])
+      current_data <- data.frame(iteration=1:niter,eta=df[,n.et])
       
       y_name <- paste("ETA", n.et)
       
@@ -400,7 +404,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
         geom_line(aes(x=iteration,y=eta), colour=colour)+ 
         ylim(min(x_this_eta),
              max(x_this_eta)) +
-        theme_bw() + ylab(y_name) + xlab("Iteration")
+        theme_bw() + ylab(y_name) + xlab("Number of MCMC samples")
       
       
       ## 90° flipped density plot for this eta in this chain
@@ -457,51 +461,49 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   }
   
   
-  jags <- jags.model('Goti_et_al.bug',
-                    data = list('c' = tdm_data$conc,
-                                'amt' = dosing_events$amt, 
-                                'dosing_time' = dosing_events$time,
-                                't_inf' = dosing_events$dur,
-                                'CLCR'=covariates$CLCR, 
-                                'WT'=covariates$WT, 
-                                'DIAL'=covariates$DIAL,
-                                'tdm_times'= temp_times,
-                                'times' =TIME,
-                                "theta"=thetas,
-                                "omega"=omegas,
-                                'sigma'=SIGMAS ),
-                    n.chains = 4,
-                    n.adapt = n.iter)
+
   
   
-  ### ---- sample from the model
-  
-  d <- coda.samples(jags,
-                    c('eta1', 'eta2', 'eta3'),
-                    n.iter*5, thin=5)
+
+  jagsfit <- jags(data = list('c' = tdm_data$conc,
+                              'amt' = dosing_events$amt, 
+                              'dosing_time' = dosing_events$time,
+                              't_inf' = dosing_events$dur,
+                              'CLCR'=covariates$CLCR, 
+                              'WT'=covariates$WT, 
+                              'DIAL'=covariates$DIAL,
+                              'tdm_times'= temp_times,
+                              'times' =TIME,
+                              "theta"=thetas,
+                              "omega"=omegas,
+                              'sigma'=SIGMAS ),
+                  working.directory = NULL,
+                  inits = NULL,
+                  parameters.to.save = c('eta1', 'eta2', 'eta3'),
+                  model.file = "Goti_et_al.bug",
+                  n.chains = n.chain,
+                  n.thin = n.thin,
+                  n.iter = n.iter,
+                  n.burnin = n.burn)
   
   # ---- Derive PK plot data from the mcmc samples using the inner function
   
-  pk_profile <- (do_plot(d, time_reference=time_reference))
+  pk_profile <- (do_plot(jagsfit, time_reference=time_reference))
   
   # ---- Create Diagnostic plots from mcmc data
   
-  mcmc_plots_1 <- mcmc_diagnosticplots(1, d, nburn=n.burn, omega=omegas, "red")
-  mcmc_plots_2 <- mcmc_diagnosticplots(2, d, nburn=n.burn, omega=omegas, "orange")
-  mcmc_plots_3 <- mcmc_diagnosticplots(3, d, nburn=n.burn, omega=omegas, "yellow")
-  mcmc_plots_4 <- mcmc_diagnosticplots(4, d, nburn=n.burn, omega=omegas, "blue")
+  mcmc_plots_1 <- mcmc_diagnosticplots(jagsfit, omega=omegas, "red")
   
-  ## Use the fourth chain for the simulation
-  df <- as.data.frame(d[[4]])
+  df <- data.frame(eta1=jagsfit$BUGSoutput$sims.list$eta1,
+                   eta2=jagsfit$BUGSoutput$sims.list$eta2,
+                   eta3=jagsfit$BUGSoutput$sims.list$eta3)
   
-  ## remove burnin iterations
-  df <- df[-(1:n.burn),]
   
   
   result = list(mcmc_plots_1, 
-                mcmc_plots_2, 
-                mcmc_plots_3, 
-                mcmc_plots_4,
+                NULL, 
+                NULL, 
+                NULL,
                 pk_profile=pk_profile[[1]], 
                 c_at_tlast=pk_profile[[2]], 
                 ind_y_max=pk_profile[[3]], 

@@ -146,9 +146,9 @@ if(app_data$tdm_samples_available){
 
 ```{r mcmc_diag, echo=FALSE, warning=FALSE}
 if(app_data$tdm_samples_available){
-gridExtra::grid.arrange(app_data$mcmc_result[[4]]$p_iter_ETA1, app_data$mcmc_result[[4]]$p_dens_ETA1,    
-                              app_data$mcmc_result[[4]]$p_iter_ETA2, app_data$mcmc_result[[4]]$p_dens_ETA2, 
-                              app_data$mcmc_result[[4]]$p_iter_ETA3, app_data$mcmc_result[[4]]$p_dens_ETA3, nrow=3, ncol=2, widths=c(3,1))  
+gridExtra::grid.arrange(app_data$mcmc_result[[1]]$p_iter_ETA1, app_data$mcmc_result[[1]]$p_dens_ETA1,    
+                              app_data$mcmc_result[[1]]$p_iter_ETA2, app_data$mcmc_result[[1]]$p_dens_ETA2, 
+                              app_data$mcmc_result[[1]]$p_iter_ETA3, app_data$mcmc_result[[1]]$p_dens_ETA3, nrow=3, ncol=2, widths=c(3,1))  
 }
 
 ```
@@ -159,7 +159,7 @@ gridExtra::grid.arrange(app_data$mcmc_result[[4]]$p_iter_ETA1, app_data$mcmc_res
 
 ```{r mcmc_diag_2, echo=FALSE, warning=FALSE}
 if(app_data$tdm_samples_available){
-chart.Correlation(app_data$mcmc_result[[4]]$chain_data, histogram=TRUE)
+chart.Correlation(app_data$mcmc_result[[1]]$chain_data, histogram=TRUE)
 }
 
 ```

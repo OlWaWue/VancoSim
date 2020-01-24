@@ -172,7 +172,7 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                             )  
                    ),
                    tabPanel("MCMC plots", htmlOutput("info.mcmc"),hr(),
-                            selectInput("select_chain", "MCMC Chain:", choices = c(1,2,3,4)),br(),
+                            
                             wellPanel("Trace plot of MCMC",br(),
                                       
                                       plotOutput("traceplot", height = 600)
@@ -195,9 +195,11 @@ shinyUI(navbarPage("VancoSim - by Oliver Scherf-Clavel (c) 2019 - JMU Wuerzburg"
                    tabPanel("Model File", htmlOutput("info.model"),hr(),
                             verbatimTextOutput("modelfile")),
                    tabPanel("Settings", htmlOutput("info.settings"),hr(),
-                             numericInput(inputId="mcmc.iter",   label="Iterations MCMC", value =1000),
                              numericInput(inputId="mc.iter",     label="Iterations MC", value =1000),
-                             numericInput(inputId="mcmc.burn",   label="Burn-in Iterations MCMC", value =200),
+                             numericInput(inputId="mcmc.iter",   label="Iterations per chain MCMC", value =2600),
+                             numericInput(inputId="mcmc.chains", label="Number of chains MCMC", value =4),
+                             numericInput(inputId="mcmc.burn",   label="Burn-in Iterations MCMC", value =100),
+                             numericInput(inputId="mcmc.thin",   label="Thinning interval MCMC", value =10),
                              numericInput(inputId="delta.t",     label="Delta time [h]", value =0.25),
                              numericInput(inputId="simulate.t",  label="Simulate time [h]", value =12),
                              numericInput(inputId="low.target",  label="Lower Limit Cthrough [mg/L]", value =10),

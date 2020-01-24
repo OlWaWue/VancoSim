@@ -2,13 +2,14 @@ model
 {
   
   
-    
+  # Prior probability densities
+  
   eta1~dnorm(0,1/pow(omega[1], 2))
   eta2~dnorm(0,1/pow(omega[2], 2))
   eta3~dnorm(0,1/pow(omega[3], 2))
   
   
-
+ # calculate concentrations using 2-cmt model with zero order infusion
  for(x in 1:length(times)){
  
   Cl[x] <- theta[1]*( (CLCR[x]/120)^theta[5]) * (theta[6]^DIAL[x])*exp(eta1)
@@ -48,9 +49,9 @@ model
   for(z in 1: length(tdm_times)){
    
     eps_prop[z]~dnorm(0, 1/(sigma[1]*sigma[1]))
-    
     c_hat[z] <- mu[tdm_times[z]] *(1+ eps_prop[z]) 
 
+    # likelyhood of the data, given the provided error model
     c[z]~dnorm(c_hat[z], 1/(sigma[2]*sigma[2])) 
   }
 
