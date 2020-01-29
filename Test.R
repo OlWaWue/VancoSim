@@ -2,6 +2,9 @@ library(mrgsolve)
 library(ggplot2)
 library(dplyr)
 library(plyr)
+library(dmutate)
+library(magrittr)
+
 
 vanc_modl <- mread("Goti_et_al")
 
@@ -19,31 +22,17 @@ dosing <- ev(id=1,
 sim_res <- vanc_modl %>%
   ev(dosing) %>%
   zero_re %>%
-  mrgsim(end=72)
+  mrgsim(end=12)
 
 data <- as.data.frame(sim_res)
 
+obs = data.frame(time=5, y=17)
 
-ggplot(data) + geom_line(aes(x=time, y=IPRED)) + geom_point(data=obs, aes(x=time, y=y))
+ggplot(data) + geom_line(aes(x=time, y=IPRED), size=1) + 
+  geom_point(data=obs, aes(x=time, y=y), size=2, shape=1, colour="red", stroke=2.5) + theme_bw() +
+  xlab("Time since last dose [h]") + ylab("Vancomycin Plasma concentration [mg/L]") +
+  theme(axis.text = element_text(size=12), axis.title = element_text(size=14)) + ylim(0,60)
 
-library('rjags')
-
-doses_prior_to_t <- list()
-
-dosing_time = c(0,12,24)
-
-dosing_time < 15
-
-times=seq(0,72,0.1)
-
-tdm_times = c(10, 23)
-
-temp_times <- NULL
-for(i in 1:length(tdm_times)){
-  temp_times <- c(temp_times, which(times == tdm_times[i]))
-}
-
-a <- estimate_etas_empiricalBayes()
 
 
 
@@ -67,7 +56,7 @@ estimate_etas_empiricalBayes <- function(mod = vanc_modl,
       data_set(d)  %>%          #Data set used to simulate the Data 
       mrgsim
     
-    sig2j <- (out$IPRED*(sigma[1,1])+(sigma[2,2]))^2 ## Residual variance
+    sig2j <- (out$IPRED*(0.227)+(3.4))^2 ## Residual variance
     sqwres <- log(sig2j) + (1/sig2j)*(y-out$IPRED)^2 ## square sum for -2LL estimate Bauer et al. (2007) AAPSJ E60
     nOn <- diag(eta_m %*% omega.inv %*% t(eta_m)) ## 
     return(sum(sqwres)+nOn)                       ## -2LL empirical bayes estimate objective function value, see http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3339294/
@@ -117,33 +106,66 @@ estimate_etas_empiricalBayes <- function(mod = vanc_modl,
 }
 
 
+a <- estimate_etas_empiricalBayes()
+
 sim_res <- vanc_modl %>%
   ev(dosing) %>%
   param(a$post_etas) %>%
   zero_re %>%
-  mrgsim(end=72)
+  mrgsim(end=12)
 
-data <- as.data.frame(sim_res)
-
-
-ggplot(data) + geom_line(aes(x=time, y=IPRED)) + geom_point(data=obs, aes(x=time, y=y)) + ylim(c(0,69)) + xlim(c(0,24))
+new_data <- as.data.frame(sim_res)
 
 
-tdm_data = data.frame(time=tdm_times, conc=c(10, 20))
+
+
+ggplot(data) + geom_line(aes(x=time, y=IPRED), linetype=2, size=1) + 
+  geom_line(data=new_data, aes(x=time, y=IPRED), colour="red", size=1) + 
+  geom_point(data=obs, aes(x=time, y=y), size=2, shape=1, colour="red", stroke=2.5) + theme_bw() +
+  xlab("Time since last dose [h]") + ylab("Vancomycin Plasma concentration [mg/L]") +
+  theme(axis.text = element_text(size=12), axis.title = element_text(size=14)) + ylim(0,60)
+
+
+mcmc_data <- read.csv("temp.csv")
+
+head(mcmc_data)
+
+ggplot(data) + geom_line(aes(x=time, y=IPRED), linetype=2, size=1) +  
+  geom_point(data=obs, aes(x=time, y=y), size=2, shape=1, colour="red", stroke=2.5) + theme_bw() +
+  xlab("Time since last dose [h]") + ylab("Vancomycin Plasma concentration [mg/L]") +
+  theme(axis.text = element_text(size=12), axis.title = element_text(size=14)) +
+  geom_line(data = mcmc_data, aes(x=time, y=max), colour="red", size=1) +
+  geom_ribbon(data= mcmc_data, aes(x=time, ymin=s1, ymax=s2), fill="red", alpha=0.1) +
+  geom_ribbon(data= mcmc_data, aes(x=time, ymin=s3, ymax=s4), fill="red", alpha=0.1) +
+  geom_ribbon(data= mcmc_data, aes(x=time, ymin=s5, ymax=s6), fill="red", alpha=0.1) +
+  geom_ribbon(data= mcmc_data, aes(x=time, ymin=s7, ymax=s8), fill="red", alpha=0.1) +
+  xlim(0,12) + ylim(0,60)
+
+
+data <- data.frame(times=seq(0,12, by=0.1))
+
 
 jags.mod <- jags.model('Goti_et_al.bug',
-                  data = list('c' = c(10, 20),
+                  data = list('c' = c(17),
                               'amt' = c(1000), 
-                              'dosing_time' = dosing_time,
-                              't_inf' = c(0.5),
-                              'CLCR'=time_dep_cov$ClCr, 
-                              'WT'=time_dep_cov$WT, 
-                              'DIAL'=time_dep_cov$DIAL,
-                              'times'= times,
-                              'tdm_times' = temp_times,
-                              "theta"=thetas,
-                              "omega"=omegas,
-                              'sigma'=sigma ),
+                              'dosing_time' = c(0),
+                              't_inf' = c(1),
+                              'CLCR'=c(120), 
+                              'WT'=c(70), 
+                              'DIAL'=c(0),
+                              'times'= seq(0,12,by=0.1),
+                              'tdm_times' = c(5),
+                              "theta"=c(4.5,  ## THETA1 -  clearance (L/h)
+                                        58.4, ## THETA2 - volume of central compartment (L)
+                                        38.4, ## THETA3 - volume of peripheral compartment (L)
+                                        6.5,  ## THETA4 - intercompartmental clearance (L/h)
+                                        0.8,  ## THETA5 - CrCl on CL
+                                        0.7,  ## THETA6 - DIAL on CL
+                                        0.5),  ## THETA7 - DIAL on Vc
+                              "omega"= c(0.398,
+                                         0.816,
+                                        0.571),
+                              'sigma'=c(0.227 , 3.4) ),
                   n.chains = 4,
                   n.adapt = 1000)
 

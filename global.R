@@ -340,7 +340,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                           s7=s[4,],s8=s[5,],
                           max=s[9,]) # median 
     
-    
+   # write.csv(pk_data, "temp.csv", row.names = F)
     
     ## Get the last simulated concentration for the boxplot
     c_at_tlast <- df_temp[,ncol(df_temp)]
@@ -463,8 +463,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
   
 
   
-  
-
+ 
   jagsfit <- jags(data = list('c' = tdm_data$conc,
                               'amt' = dosing_events$amt, 
                               'dosing_time' = dosing_events$time,
@@ -479,12 +478,14 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                               'sigma'=SIGMAS ),
                   working.directory = NULL,
                   inits = NULL,
-                  parameters.to.save = c('eta1', 'eta2', 'eta3'),
+                  parameters.to.save = c('eta1', 'eta2', 'eta3', "res_err"),
                   model.file = "Goti_et_al.bug",
                   n.chains = n.chain,
                   n.thin = n.thin,
                   n.iter = n.iter,
                   n.burnin = n.burn)
+  
+  
   
   # ---- Derive PK plot data from the mcmc samples using the inner function
   
