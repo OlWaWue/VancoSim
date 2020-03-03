@@ -48,8 +48,8 @@ model
   
   for(z in 1: length(tdm_times)){
    
-    res_err[z] <- mu[tdm_times[z]] *sigma[1] + sigma[2]
-    tau[z] <- pow(res_err[z], -2)
+    res_var[z] <- pow(mu[tdm_times[z]],2) * pow(sigma[1],2) + pow(sigma[2],2)
+    tau[z] <- 1/res_var[z]
     
     # likelihood of the data, given the provided error model
     c[z]~dnorm(mu[tdm_times[z]], tau[z]) 

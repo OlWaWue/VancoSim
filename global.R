@@ -340,7 +340,7 @@ process_data_set <- function(pk_data = data.frame(time=c(0,4,6,12,30,50),
                           s7=s[4,],s8=s[5,],
                           max=s[9,]) # median 
     
-   # write.csv(pk_data, "temp.csv", row.names = F)
+    write.csv(pk_data, "temp.csv", row.names = F)
     
     ## Get the last simulated concentration for the boxplot
     c_at_tlast <- df_temp[,ncol(df_temp)]

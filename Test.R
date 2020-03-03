@@ -56,7 +56,7 @@ estimate_etas_empiricalBayes <- function(mod = vanc_modl,
       data_set(d)  %>%          #Data set used to simulate the Data 
       mrgsim
     
-    sig2j <- (out$IPRED*(0.227)+(3.4))^2 ## Residual variance
+    sig2j <- (out$IPRED^2)*(0.227^2)+(3.4)^2 ## Residual variance
     sqwres <- log(sig2j) + (1/sig2j)*(y-out$IPRED)^2 ## square sum for -2LL estimate Bauer et al. (2007) AAPSJ E60
     nOn <- diag(eta_m %*% omega.inv %*% t(eta_m)) ## 
     return(sum(sqwres)+nOn)                       ## -2LL empirical bayes estimate objective function value, see http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3339294/
@@ -71,7 +71,7 @@ estimate_etas_empiricalBayes <- function(mod = vanc_modl,
   #Invert Omega Matrix for Standard Error estimation
   omega.inv <- solve(omega)
   
-  sigma <- diag(0.227, 3.4)
+  sigma <- c(0.227, 3.4)
   
 
   
@@ -123,7 +123,7 @@ ggplot(data) + geom_line(aes(x=time, y=IPRED), linetype=2, size=1) +
   geom_line(data=new_data, aes(x=time, y=IPRED), colour="red", size=1) + 
   geom_point(data=obs, aes(x=time, y=y), size=2, shape=1, colour="red", stroke=2.5) + theme_bw() +
   xlab("Time since last dose [h]") + ylab("Vancomycin Plasma concentration [mg/L]") +
-  theme(axis.text = element_text(size=12), axis.title = element_text(size=14)) + ylim(0,60)
+  theme(axis.text = element_text(size=12), axis.title = element_text(size=14)) + ylim(0,100)
 
 
 mcmc_data <- read.csv("temp.csv")
@@ -139,7 +139,7 @@ ggplot(data) + geom_line(aes(x=time, y=IPRED), linetype=2, size=1) +
   geom_ribbon(data= mcmc_data, aes(x=time, ymin=s3, ymax=s4), fill="red", alpha=0.1) +
   geom_ribbon(data= mcmc_data, aes(x=time, ymin=s5, ymax=s6), fill="red", alpha=0.1) +
   geom_ribbon(data= mcmc_data, aes(x=time, ymin=s7, ymax=s8), fill="red", alpha=0.1) +
-  xlim(0,12) + ylim(0,60)
+  xlim(0,12) + ylim(0,100)
 
 
 data <- data.frame(times=seq(0,12, by=0.1))
